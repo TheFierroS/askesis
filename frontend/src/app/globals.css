@@ -1,0 +1,1143 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Özel fontlar
+
+   Dosyaları `public/fonts/` klasörüne koy, isimleri aşağıdakilerle aynı olsun:
+     public/fonts/custody.woff2      → marka adı
+     public/fonts/raventhorn.woff2   → büyük başlıklar
+
+   Neden next/font/local değil de @font-face?
+   next/font/local dosyayı derleme anında arıyor; dosya yoksa proje hiç
+   derlenmiyor. @font-face ise bulamazsa sessizce yedek fonta düşüyor. Font
+   dosyaları hazır olmadan da site çalışsın istiyoruz.
+
+   .woff2 yoksa .ttf/.otf de olur; aşağıdaki src satırında uzantıyı değiştir.
+   Ama woff2 belirgin şekilde küçük — bir font dosyası 200 KB ile 60 KB
+   arasında fark eder ve bu ilk açılışta doğrudan hissediliyor.
+   Dönüştürmek için: https://cloudconvert.com/ttf-to-woff2
+   ============================================================ */
+
+@font-face {
+    font-family: "Custody";
+    src: url("/fonts/custody.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    /* swap: font inerken metin görünmez kalmasın, yedekle çizilip sonra
+       değişsin. Marka adının bir an görünmemesi kötü görünüyor. */
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Raventhorn";
+    src: url("/fonts/raventhorn.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    /* Marka adı — yalnızca logo. */
+    --font-brand: "Custody", var(--font-display), serif;
+
+    /* Büyük başlıklar ve bölüm etiketleri: hero, section başlıkları, kart
+       başlıkları. Buton içi gibi 13 puntonun altına inen yerlerde
+       KULLANILMIYOR — süslü fontlar orada okunmuyor. */
+    --font-heading: "Raventhorn", var(--font-display), serif;
+}
+/* KaTeX: formüllerin doğru hizalanması için gerekli */
+@import "katex/dist/katex.min.css";
+
+/* ============================================================
+   PALET (resimlerden çıkarılan ham renkler)
+
+   DARK  →  #272727  #747474  #FF652F  #FFE400  #14A76C
+   LIGHT →  #EAE7DC  #D8C3A5  #8E8D8A  #E98074  #E85A4F
+
+   İki palet birbirine "ink" üzerinden bağlanıyor:
+   dark'ın metni light'ın zemini (#EAE7DC),
+   light'ın metni dark'ın zemini (#272727).
+   ============================================================ */
+
+/* ---------- DARK (varsayılan) ---------- */
+:root,
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    --bg: #272727;
+    --bg-deep: #1c1c1c;
+    --bg-elevated: #2f2f2f;
+
+    --surface: rgba(234, 231, 220, 0.045);
+    --surface-hover: rgba(234, 231, 220, 0.09);
+    --surface-strong: rgba(234, 231, 220, 0.12);
+
+    --border: rgba(234, 231, 220, 0.14);
+    --border-hover: rgba(255, 101, 47, 0.45);
+    --border-faint: rgba(234, 231, 220, 0.07);
+
+    --fg: #eae7dc;
+    /* Paletteki #747474 koyu zeminde metin için 3:1 altında kalıyor,
+       bu yüzden okunur bir ara ton türetildi; #747474 sadece çizgi/ikon. */
+    --fg-muted: #9a9894;
+    --fg-faint: #747474;
+
+    --accent: #ff652f;
+    --accent-hover: #ff8354;
+    --accent-soft: rgba(255, 101, 47, 0.14);
+    --accent-ring: rgba(255, 101, 47, 0.3);
+    --on-accent: #1c1c1c;
+
+    /* İkinci ve üçüncü vurgu: paletin sarı ve yeşili.
+       Üçlü, "How it works" adımları ve form alanları arasında sırayla dönüyor. */
+    --accent-2: #ffe400;
+    --accent-2-soft: rgba(255, 228, 0, 0.14);
+    --accent-3: #14a76c;
+    --accent-3-soft: rgba(20, 167, 108, 0.14);
+
+    --highlight: var(--accent-2);
+    --success: var(--accent-3);
+    --danger: #e85a4f;
+
+    --glow: radial-gradient(circle, rgba(255, 101, 47, 0.22) 0%, transparent 70%);
+    --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+    --shadow-btn: 0 10px 28px -12px rgba(255, 101, 47, 0.55);
+}
+
+/* ---------- LIGHT ---------- */
+[data-theme="light"] {
+    color-scheme: light;
+
+    --bg: #eae7dc;
+    --bg-deep: #ddd9cb;
+    --bg-elevated: #f3f1e9;
+
+    --surface: rgba(216, 195, 165, 0.3);
+    --surface-hover: rgba(216, 195, 165, 0.5);
+    --surface-strong: rgba(216, 195, 165, 0.68);
+
+    --border: rgba(142, 141, 138, 0.3);
+    --border-hover: rgba(232, 90, 79, 0.55);
+    --border-faint: rgba(142, 141, 138, 0.16);
+
+    --fg: #272727;
+    --fg-muted: #6e6d6a;
+    --fg-faint: #8e8d8a;
+
+    /* Dolgu buton için #E85A4F beyaz metinle AA'yı zor geçiyordu;
+       dolguda bir ton koyusu, çizgi/ikonlarda palet rengi kullanılıyor. */
+    --accent: #e85a4f;
+    --accent-hover: #e98074;
+    --accent-soft: rgba(232, 90, 79, 0.12);
+    --accent-ring: rgba(232, 90, 79, 0.28);
+    --accent-solid: #c7443a;
+    --on-accent: #fff8f5;
+
+    /* Üçlü tamamen paletin kendi renklerinden: mercan → somon → mürekkep.
+       (Koyu temadaki sarı/yeşilin açık paletde karşılığı yok, uydurulmadı.) */
+    --accent-2: #e98074;
+    --accent-2-soft: rgba(233, 128, 116, 0.16);
+    --accent-3: #272727;
+    --accent-3-soft: rgba(39, 39, 39, 0.07);
+
+    --highlight: var(--accent-2);
+    /* Sadece işlevsel durum rengi (form doğrulama, Clerk). Tasarımda görünmüyor. */
+    --success: #0f8557;
+    --danger: #c7443a;
+
+    --glow: radial-gradient(circle, rgba(216, 195, 165, 0.75) 0%, transparent 70%);
+    --shadow-lg: 0 24px 60px -24px rgba(39, 39, 39, 0.28);
+    --shadow-btn: 0 10px 26px -14px rgba(199, 68, 58, 0.6);
+}
+
+:root,
+[data-theme="dark"] {
+    --accent-solid: var(--accent);
+}
+
+/* Tailwind v4: tokenları utility olarak da kullanılabilir yap
+   (bg-bg, text-fg, border-border, bg-surface, text-accent ...) */
+@theme inline {
+    --color-bg: var(--bg);
+    --color-bg-deep: var(--bg-deep);
+    --color-bg-elevated: var(--bg-elevated);
+    --color-surface: var(--surface);
+    --color-surface-hover: var(--surface-hover);
+    --color-border: var(--border);
+    --color-fg: var(--fg);
+    --color-fg-muted: var(--fg-muted);
+    --color-fg-faint: var(--fg-faint);
+    --color-accent: var(--accent);
+    --color-accent-hover: var(--accent-hover);
+    --color-accent-2: var(--accent-2);
+    --color-accent-3: var(--accent-3);
+    --color-highlight: var(--highlight);
+    --color-success: var(--success);
+    --color-danger: var(--danger);
+}
+
+html {
+    background-color: var(--bg);
+    color: var(--fg);
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--fg);
+}
+
+/* ============================================================
+   Tema geçişi
+
+   Önceki yaklaşım `.theme-ready *` ile HER elemana transition veriyordu.
+   Çözüm açıkken KaTeX yüzlerce span üretiyor ve tarayıcı hepsinin rengini
+   ayrı ayrı animasyonlamaya çalışıyordu — tema değişimi belirgin şekilde
+   takılıyor, bazı bölgeler geç geliyordu.
+
+   Şimdi elemanları değil DEĞİŞKENLERİ animasyonluyoruz. @property ile
+   kaydedilen özel özellikler geçişe girebiliyor; tek bir animasyon çalışıyor
+   ve onu kullanan her yer aynı anda güncelleniyor. Bütünlük de bu sayede
+   bozulmuyor.
+
+   Desteklemeyen tarayıcıda geçiş olmaz, renk anında değişir — kabul edilebilir.
+   ============================================================ */
+
+@property --bg {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #272727;
+}
+@property --bg-deep {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #1c1c1c;
+}
+@property --bg-elevated {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #2f2f2f;
+}
+@property --surface {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(234, 231, 220, 0.045);
+}
+@property --surface-hover {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(234, 231, 220, 0.09);
+}
+@property --border {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(234, 231, 220, 0.14);
+}
+@property --border-faint {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(234, 231, 220, 0.07);
+}
+@property --fg {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #eae7dc;
+}
+@property --fg-muted {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #9a9894;
+}
+@property --fg-faint {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #747474;
+}
+@property --accent {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #ff652f;
+}
+@property --accent-2 {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #ffe400;
+}
+@property --accent-3 {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #14a76c;
+}
+@property --accent-soft {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(255, 101, 47, 0.14);
+}
+@property --accent-2-soft {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(255, 228, 0, 0.14);
+}
+@property --accent-3-soft {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(20, 167, 108, 0.14);
+}
+@property --accent-solid {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #ff652f;
+}
+@property --accent-hover {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #ff8354;
+}
+@property --accent-ring {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(255, 101, 47, 0.3);
+}
+@property --on-accent {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #1c1c1c;
+}
+@property --border-hover {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(255, 101, 47, 0.45);
+}
+@property --surface-strong {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(234, 231, 220, 0.12);
+}
+@property --danger {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #e85a4f;
+}
+
+/* Geçiş yalnızca ilk boyamadan sonra: sayfa açılırken tema animasyonu
+   görmek istemiyoruz. */
+html.theme-ready {
+    transition:
+        --bg 0.35s ease,
+        --bg-deep 0.35s ease,
+        --bg-elevated 0.35s ease,
+        --surface 0.35s ease,
+        --surface-hover 0.35s ease,
+        --border 0.35s ease,
+        --border-faint 0.35s ease,
+        --fg 0.35s ease,
+        --fg-muted 0.35s ease,
+        --fg-faint 0.35s ease,
+        --accent 0.35s ease,
+        --accent-2 0.35s ease,
+        --accent-3 0.35s ease,
+        --accent-soft 0.35s ease,
+        --accent-2-soft 0.35s ease,
+        --accent-3-soft 0.35s ease,
+        --accent-solid 0.35s ease,
+        --accent-hover 0.35s ease,
+        --accent-ring 0.35s ease,
+        --on-accent 0.35s ease,
+        --border-hover 0.35s ease,
+        --surface-strong 0.35s ease,
+        --danger 0.35s ease;
+}
+
+/* Eleman seviyesinde AYRICA transition tanımlamıyoruz.
+   body'ye background-color geçişi verildiğinde iki animasyon üst üste
+   biniyordu: değişken zaten 0.35s boyunca değişiyor, elemanın kendi geçişi de
+   o hareketli hedefe doğru koşuyordu. Sonuç "önce yumuşak, sonra bir anda
+   sıçrama" oluyordu. Tek animasyon yeter. */
+
+/* Tema değişimi sürerken eleman geçişleri susuyor — yalnızca değişken
+   animasyonu çalışsın diye. html hariç tutuluyor, animasyon orada.
+   Ayrıntılı gerekçe ThemeProvider.setTheme içinde. */
+.theme-switching *:not(html) {
+    transition: none !important;
+}
+
+/* Tema anahtarının KENDİSİ bu susturmanın dışında.
+   Anahtarın topunun kayması, gece-gündüz geçişi ve bulutların hareketi hep
+   transition ile yapılıyor. Yukarıdaki kural onları da susturunca anahtar
+   animasyonsuz zıplıyordu — tam da kullanıcının bakmakta olduğu yerde.
+   Bu geçişler renk değişkenlerine bağlı olmadığı için çift animasyon
+   sorununa da yol açmıyorlar. */
+.theme-switching .theme-switch__container,
+.theme-switching .theme-switch__container::before {
+    transition: var(--transition) !important;
+}
+
+/* Anahtarın içindeki her parça: top, güneş/ay, lekeler, bulutlar, yıldızlar.
+   Tek tek saymak yerine alt seçici kullanıyoruz — ileride bir parça
+   eklenirse burayı güncellemeyi unutmak animasyonu yine kırardı. */
+.theme-switching .theme-switch__container * {
+    transition: var(--circle-transition) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.theme-ready {
+        transition: none !important;
+    }
+}
+
+/* ============================================================
+   Marka logosu
+
+   Tek dosya kullanılıyor. Görselin saydamlık kanalı maske olarak kesiliyor,
+   içi metin rengiyle dolduruluyor. Dosyanın kendi rengi önemsiz.
+
+   Neden iki ayrı dosya değil: iki dosyayı senkron tutmak (biri güncellenip
+   diğeri unutulmasın) gereksiz bir bakım yükü, ve tema geçişinde ikisini
+   çapraz soldurmak gerekiyordu. Maske ile logo doğrudan --fg değişkenini
+   kullanıyor, geçiş kendiliğinden oluyor.
+   ============================================================ */
+.brand-logo {
+    display: inline-block;
+    flex-shrink: 0;
+
+    /* Boyut bileşenden değişken olarak geliyor; mobilde ölçek küçülüyor.
+       Böylece her çağrı yerinde ayrı bir mobil değer geçirmek gerekmiyor. */
+    --brand-logo-scale: 1;
+    height: calc(var(--brand-logo-height, 40px) * var(--brand-logo-scale));
+    width: calc(
+        var(--brand-logo-height, 40px) * var(--brand-logo-scale) *
+            var(--brand-logo-aspect, 1)
+    );
+
+    /* Rengi buradan geliyor: maske şekli kesiyor, bu renk içini dolduruyor.
+       var(--fg) tema değişkeni olduğu için logo da diğer her şeyle birlikte
+       dönüyor; ayrıca bir geçiş tanımlamaya gerek yok. */
+    background-color: var(--fg);
+
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+@media (max-width: 640px) {
+    .brand-logo {
+        --brand-logo-scale: 0.78;
+    }
+}
+
+/* ============================================================
+   Metin seçimi
+
+   Tarayıcının varsayılan mavisi hiçbir temayla uyuşmuyor: koyu temada
+   yabancı, açık temada sert duruyor. Vurgu renginin soluk bir tonuyla
+   değiştiriyoruz; seçili metin okunur kalıyor, sayfa da bütünlüğünü
+   koruyor.
+
+   Alfa değeri düşük tutuldu (%22): daha koyusunda metnin kendisi
+   okunmuyor, özellikle formüllerin ince çizgileri kayboluyor.
+   ============================================================ */
+::selection {
+    background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: var(--fg);
+}
+
+/* Firefox ayrı ön ek istiyor. */
+::-moz-selection {
+    background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: var(--fg);
+}
+
+/* Klavye odağı her iki temada da görünür olsun */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Range input
+   accent-color tek başına yetmiyordu: dolu kısmı renkleniyor ama BOŞ ray
+   tarayıcının varsayılan grisinde kalıyor ve tema değişince kıpırdamıyordu.
+   Rayı elle çiziyoruz. */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.4);
+    transition: transform 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    cursor: pointer;
+}
+
+input[type="range"]::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border);
+}
+
+/* ============================================================
+   Create Account butonu (uiverse: adamgiebl/new-bird-34)
+   ============================================================ */
+.btn-create-account {
+    background: var(--accent-solid);
+    color: var(--on-accent);
+    font-family: inherit;
+    padding: 0.35em;
+    padding-left: 1.4em;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 9999px;
+    border: none;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    box-shadow: var(--shadow-btn);
+    overflow: hidden;
+    position: relative;
+    height: 3em;
+    padding-right: 3.6em;
+    cursor: pointer;
+}
+
+.btn-create-account .icon {
+    background: var(--bg-deep);
+    margin-left: 1em;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.3em;
+    width: 2.3em;
+    border-radius: 9999px;
+    box-shadow: 0.1em 0.1em 0.6em 0.2em rgba(0, 0, 0, 0.18);
+    right: 0.3em;
+    /* `all` DEĞİL: renk özellikleri değişkenlerden geliyor ve onlar zaten
+       animasyonda. `all` ile ikinci bir renk animasyonu başlıyordu. */
+    transition: width 0.3s, transform 0.3s;
+}
+
+.btn-create-account:hover .icon {
+    width: calc(100% - 0.6em);
+}
+
+.btn-create-account .icon svg {
+    width: 1.1em;
+    transition: transform 0.3s;
+    color: var(--accent);
+}
+
+.btn-create-account:hover .icon svg {
+    transform: translateX(0.15em);
+}
+
+.btn-create-account:active .icon {
+    transform: scale(0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn-create-account .icon,
+    .btn-create-account .icon svg {
+        transition: none;
+    }
+}
+
+/* ============================================================
+   Sign In butonu (uiverse: alexmaracinaru)
+   ============================================================ */
+.cta-signin {
+    border: none;
+    background: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    color: var(--fg);
+}
+
+.cta-signin span {
+    padding-bottom: 4px;
+    letter-spacing: 2px;
+    font-size: 14px;
+    padding-right: 8px;
+    font-weight: 600;
+}
+
+.cta-signin svg {
+    fill: var(--accent);
+    transform: translateX(-4px);
+    transition: transform 0.3s ease;
+}
+
+.cta-signin:hover svg {
+    transform: translateX(4px);
+}
+
+.cta-signin:active svg {
+    transform: scale(0.9);
+}
+
+.hover-underline-animation-signin {
+    position: relative;
+    color: var(--fg);
+}
+
+.hover-underline-animation-signin:after {
+    content: "";
+    position: absolute;
+    width: 100%;
+    transform: scaleX(0);
+    height: 2px;
+    bottom: 0;
+    left: 0;
+    background-color: var(--accent);
+    transform-origin: bottom right;
+    transition: transform 0.25s ease-out;
+}
+
+.cta-signin:hover .hover-underline-animation-signin:after {
+    transform: scaleX(1);
+    transform-origin: bottom left;
+}
+
+/* ============================================================
+   Tema switch'i (uiverse: Galahhad) — palete uyarlandı
+   Orijinal mavi/gece renkleri yerine paletin sıcak kum + gece tonları,
+   güneş #FFE400, ay #EAE7DC, yıldızlar #FFE400.
+   ============================================================ */
+.theme-switch {
+    /* Orijinali 30px idi; navbar'sız sayfada 30px devasa duruyor. */
+    --toggle-size: 15px;
+    --container-width: 5.625em;
+    --container-height: 2.5em;
+    --container-radius: 6.25em;
+    /* Gökyüzü: paletin somonu. Kum (#D8C3A5) denendi ama krem bulutlarla
+       neredeyse aynı açıklıkta olduğu için bulutlar kayboluyordu. */
+    --container-light-bg: #e98074;
+    --container-night-bg: #1c1c1c;
+    --circle-container-diameter: 3.375em;
+    --sun-moon-diameter: 2.125em;
+    --sun-bg: #ffe400;
+    --moon-bg: #eae7dc;
+    --spot-color: #a9a6a0;
+    --circle-container-offset: calc(
+        (var(--circle-container-diameter) - var(--container-height)) / 2 * -1
+    );
+    --stars-color: #ffe400;
+    --clouds-color: #eae7dc;
+    --back-clouds-color: #d8c3a5;
+    --transition: 0.5s cubic-bezier(0, -0.02, 0.4, 1.25);
+    --circle-transition: 0.3s cubic-bezier(0, -0.02, 0.35, 1.17);
+}
+
+.theme-switch,
+.theme-switch *,
+.theme-switch *::before,
+.theme-switch *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-size: var(--toggle-size);
+    /* Global tema transition'ı bu bileşenin kendi animasyonlarını bozmasın */
+    transition: none;
+}
+
+.theme-switch__container {
+    width: var(--container-width);
+    height: var(--container-height);
+    background-color: var(--container-light-bg);
+    border-radius: var(--container-radius);
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow:
+        0em -0.062em 0.062em rgba(0, 0, 0, 0.25),
+        0em 0.062em 0.125em rgba(255, 255, 255, 0.55);
+    transition: var(--transition);
+    position: relative;
+}
+
+.theme-switch__container::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    box-shadow:
+        0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset,
+        0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset;
+    border-radius: var(--container-radius);
+}
+
+.theme-switch__checkbox {
+    /* display:none klavyeyle odaklanılamaz yapıyordu; görsel olarak gizli ama
+       hâlâ focusable ve screen reader'a açık. */
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.theme-switch__checkbox:focus-visible + .theme-switch__container {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.theme-switch__circle-container {
+    width: var(--circle-container-diameter);
+    height: var(--circle-container-diameter);
+    background-color: rgba(255, 255, 255, 0.1);
+    position: absolute;
+    left: var(--circle-container-offset);
+    top: var(--circle-container-offset);
+    border-radius: var(--container-radius);
+    box-shadow:
+        inset 0 0 0 3.375em rgba(255, 255, 255, 0.1),
+        inset 0 0 0 3.375em rgba(255, 255, 255, 0.1),
+        0 0 0 0.625em rgba(255, 255, 255, 0.1),
+        0 0 0 1.25em rgba(255, 255, 255, 0.1);
+    display: flex;
+    transition: var(--circle-transition);
+    pointer-events: none;
+}
+
+.theme-switch__sun-moon-container {
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+    width: var(--sun-moon-diameter);
+    height: var(--sun-moon-diameter);
+    margin: auto;
+    border-radius: var(--container-radius);
+    background-color: var(--sun-bg);
+    box-shadow:
+        0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset,
+        0em -0.062em 0.062em 0em #a1872a inset;
+    filter: drop-shadow(0.062em 0.125em 0.125em rgba(0, 0, 0, 0.25))
+        drop-shadow(0em 0.062em 0.125em rgba(0, 0, 0, 0.25));
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.theme-switch__moon {
+    transform: translateX(100%);
+    width: 100%;
+    height: 100%;
+    background-color: var(--moon-bg);
+    border-radius: inherit;
+    box-shadow:
+        0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset,
+        0em -0.062em 0.062em 0em #969696 inset;
+    transition: var(--transition);
+    position: relative;
+}
+
+.theme-switch__spot {
+    position: absolute;
+    top: 0.75em;
+    left: 0.312em;
+    width: 0.75em;
+    height: 0.75em;
+    border-radius: var(--container-radius);
+    background-color: var(--spot-color);
+    box-shadow: 0em 0.0312em 0.062em rgba(0, 0, 0, 0.25) inset;
+}
+
+.theme-switch__spot:nth-of-type(2) {
+    width: 0.375em;
+    height: 0.375em;
+    top: 0.937em;
+    left: 1.375em;
+}
+
+.theme-switch__spot:nth-last-of-type(3) {
+    width: 0.25em;
+    height: 0.25em;
+    top: 0.312em;
+    left: 0.812em;
+}
+
+.theme-switch__clouds {
+    width: 1.25em;
+    height: 1.25em;
+    background-color: var(--clouds-color);
+    border-radius: var(--container-radius);
+    position: absolute;
+    bottom: -0.625em;
+    left: 0.312em;
+    box-shadow:
+        0.937em 0.312em var(--clouds-color),
+        -0.312em -0.312em var(--back-clouds-color),
+        1.437em 0.375em var(--clouds-color),
+        0.5em -0.125em var(--back-clouds-color),
+        2.187em 0 var(--clouds-color),
+        1.25em -0.062em var(--back-clouds-color),
+        2.937em 0.312em var(--clouds-color),
+        2em -0.312em var(--back-clouds-color),
+        3.625em -0.062em var(--clouds-color),
+        2.625em 0em var(--back-clouds-color),
+        4.5em -0.312em var(--clouds-color),
+        3.375em -0.437em var(--back-clouds-color),
+        4.625em -1.75em 0 0.437em var(--clouds-color),
+        4em -0.625em var(--back-clouds-color),
+        4.125em -2.125em 0 0.437em var(--back-clouds-color);
+    transition: 0.5s cubic-bezier(0, -0.02, 0.4, 1.25);
+}
+
+.theme-switch__stars-container {
+    position: absolute;
+    color: var(--stars-color);
+    top: -100%;
+    left: 0.312em;
+    width: 2.75em;
+    height: auto;
+    transition: var(--transition);
+}
+
+/* Mobilde daha da küçük: üst barda logo ve profil simgesiyle yan yana
+   durduğunda 15px bile yer kaplıyordu. */
+@media (max-width: 640px) {
+    .theme-switch {
+        --toggle-size: 11px;
+    }
+}
+
+/* --- durumlar --- */
+.theme-switch__checkbox:checked + .theme-switch__container {
+    background-color: var(--container-night-bg);
+}
+
+.theme-switch__checkbox:checked
+    + .theme-switch__container
+    .theme-switch__circle-container {
+    left: calc(
+        100% - var(--circle-container-offset) - var(--circle-container-diameter)
+    );
+}
+
+.theme-switch__checkbox:checked
+    + .theme-switch__container
+    .theme-switch__circle-container:hover {
+    left: calc(
+        100% - var(--circle-container-offset) - var(--circle-container-diameter) -
+            0.187em
+    );
+}
+
+.theme-switch__circle-container:hover {
+    left: calc(var(--circle-container-offset) + 0.187em);
+}
+
+.theme-switch__checkbox:checked
+    + .theme-switch__container
+    .theme-switch__moon {
+    transform: translate(0);
+}
+
+.theme-switch__checkbox:checked
+    + .theme-switch__container
+    .theme-switch__clouds {
+    bottom: -4.062em;
+}
+
+.theme-switch__checkbox:checked
+    + .theme-switch__container
+    .theme-switch__stars-container {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .theme-switch__container,
+    .theme-switch__circle-container,
+    .theme-switch__moon,
+    .theme-switch__clouds,
+    .theme-switch__stars-container,
+    .theme-switch__sun-moon-container {
+        transition: none !important;
+    }
+}
+
+/* ============================================================
+   Loader (uiverse: kennyotsu/fresh-lizard-20)
+   Kart/kutu yok: sayfanın ortasında serbest duruyor. Kutulu hali içerik
+   kartlarıyla karışıyor ve "bir şeyin içinde" hissi veriyordu.
+   ============================================================ */
+.gen-loader {
+    /* Kelimelerin üstünü/altını yumuşatan maske sayfa zeminiyle aynı renkte
+       olmalı, yoksa kesim çizgisi görünüyor. */
+    --loader-bg: var(--bg);
+
+    color: var(--fg-muted);
+    font-family: var(--font-geist-sans), sans-serif;
+    font-weight: 500;
+    font-size: 30px;
+    box-sizing: content-box;
+    height: 48px;
+    display: flex;
+    align-items: flex-start;
+}
+
+/* Yükseltilmiş zemin üzerinde kullanılırsa maskeyi ona uydur. */
+.gen-loader--elevated {
+    --loader-bg: var(--bg-elevated);
+}
+
+.gen-loader__words {
+    overflow: hidden;
+    position: relative;
+    height: 48px;
+}
+
+.gen-loader__words::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        var(--loader-bg) 8%,
+        transparent 32%,
+        transparent 68%,
+        var(--loader-bg) 92%
+    );
+    z-index: 20;
+}
+
+.gen-loader__word {
+    display: block;
+    height: 48px;
+    line-height: 48px;
+    padding-left: 10px;
+    color: var(--accent);
+    font-family: var(--font-display), serif;
+    font-weight: 700;
+    white-space: nowrap;
+    animation: gen-loader-spin 4s infinite;
+}
+
+@keyframes gen-loader-spin {
+    10% { transform: translateY(-102%); }
+    25% { transform: translateY(-100%); }
+    35% { transform: translateY(-202%); }
+    50% { transform: translateY(-200%); }
+    60% { transform: translateY(-302%); }
+    75% { transform: translateY(-300%); }
+    85% { transform: translateY(-402%); }
+    100% { transform: translateY(-400%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gen-loader__word {
+        animation: none;
+    }
+}
+
+/* ============================================================
+   Ok butonu (uiverse: xopc333) — soru ileri/geri
+   Halka içeri büzülüp renkli halka dışarı açılıyor, ok kayarak yerini
+   ikizine bırakıyor. Renkler temadan geliyor.
+   ============================================================ */
+.arrow-btn {
+    --arrow-size: 44px;
+    display: block;
+    position: relative;
+    width: var(--arrow-size);
+    height: var(--arrow-size);
+    margin: 0;
+    overflow: hidden;
+    outline: none;
+    background-color: transparent;
+    cursor: pointer;
+    border: 0;
+    flex-shrink: 0;
+}
+
+.arrow-btn:disabled {
+    opacity: 0.2;
+    pointer-events: none;
+}
+
+.arrow-btn::before,
+.arrow-btn::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    inset: 3px;
+}
+
+.arrow-btn::before {
+    border: 2px solid var(--border);
+    transition:
+        opacity 0.4s cubic-bezier(0.77, 0, 0.175, 1) 80ms,
+        transform 0.5s cubic-bezier(0.455, 0.03, 0.515, 0.955) 80ms;
+}
+
+.arrow-btn::after {
+    border: 2px solid var(--accent);
+    transform: scale(1.3);
+    opacity: 0;
+    transition:
+        opacity 0.4s cubic-bezier(0.165, 0.84, 0.44, 1),
+        transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.arrow-btn:hover::before,
+.arrow-btn:focus-visible::before {
+    opacity: 0;
+    transform: scale(0.7);
+    transition:
+        opacity 0.4s cubic-bezier(0.165, 0.84, 0.44, 1),
+        transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.arrow-btn:hover::after,
+.arrow-btn:focus-visible::after {
+    opacity: 1;
+    transform: scale(1);
+    transition:
+        opacity 0.4s cubic-bezier(0.77, 0, 0.175, 1) 80ms,
+        transform 0.5s cubic-bezier(0.455, 0.03, 0.515, 0.955) 80ms;
+}
+
+.arrow-btn__box {
+    display: flex;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.arrow-btn__icon {
+    display: block;
+    width: 15px;
+    height: 15px;
+    margin: 14.5px;
+    fill: var(--fg-muted);
+}
+
+.arrow-btn:hover .arrow-btn__icon,
+.arrow-btn:focus-visible .arrow-btn__icon {
+    fill: var(--accent);
+}
+
+.arrow-btn:hover .arrow-btn__box,
+.arrow-btn:focus-visible .arrow-btn__box {
+    transition: 0.4s;
+    transform: translateX(calc(var(--arrow-size) * -1));
+}
+
+/* Geri butonu: aynı bileşenin aynalanmış hali. */
+.arrow-btn--back {
+    transform: scaleX(-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .arrow-btn::before,
+    .arrow-btn::after,
+    .arrow-btn__box {
+        transition: none !important;
+    }
+}
+
+/* ============================================================
+   Markdown + LaTeX içerik (MathMarkdown)
+
+   Uzun boylu matematiğin (kesir, integral) satır içinde kalıp komşu satıra
+   taşması sorunu BURADA değil, MathMarkdown içinde çözülüyor: o ifadeler
+   çizimden önce kendi satırına taşınıyor. CSS ile çözmeye çalışmak
+   (line-height artırmak, inline-block vermek) bazı genişliklerde işe
+   yarayıp bazılarında yaramıyordu.
+   ============================================================ */
+.math-markdown {
+    color: var(--fg);
+    line-height: 1.75;
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+
+.math-markdown p {
+    margin: 0 0 0.75rem;
+}
+
+.math-markdown p:last-child {
+    margin-bottom: 0;
+}
+
+.math-markdown strong {
+    color: var(--fg);
+    font-weight: 700;
+}
+
+.math-markdown ul,
+.math-markdown ol {
+    margin: 0 0 0.75rem 1.25rem;
+    list-style: revert;
+}
+
+.math-markdown code {
+    background-color: var(--surface);
+    border-radius: 0.35rem;
+    padding: 0.1em 0.35em;
+    font-family: var(--font-geist-mono), monospace;
+    font-size: 0.9em;
+}
+
+/* KaTeX kendi rengini belirlemiyor, üstteki metinden miras alıyor — tema
+   değişince formüller de değişiyor. */
+.math-markdown .katex {
+    color: var(--fg);
+    font-size: 1.05em;
+    max-width: 100%;
+}
+
+/* Blok matematik: kendi satırında, üstünde ve altında nefes payıyla.
+   overflow davranışını MathMarkdown ölçerek ayarlıyor — sığmayan formül önce
+   küçültülüyor, okunmayacak kadar küçülmesi gerekirse kaydırma açılıyor. */
+.math-markdown .katex-display {
+    overflow-x: hidden;
+    overflow-y: visible;
+    margin: 1rem 0;
+    padding: 0.1rem 0;
+}
+
+/* Çözüm bloğundaki başlıklar (**[SORU]** gibi) */
+.math-markdown h1,
+.math-markdown h2,
+.math-markdown h3 {
+    font-family: var(--font-display), serif;
+    color: var(--fg);
+    font-weight: 700;
+    margin: 1rem 0 0.5rem;
+}
+
+@media (max-width: 640px) {
+    .math-markdown {
+        font-size: 0.95rem;
+        line-height: 1.7;
+    }
+
+    .math-markdown .katex-display {
+        margin: 0.85rem 0;
+    }
+}

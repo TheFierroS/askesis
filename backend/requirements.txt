@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-dotenv
+httpx
+chromadb
+pypdf
+pymupdf
+jinja2
+apscheduler
+pytesseract
+pillow

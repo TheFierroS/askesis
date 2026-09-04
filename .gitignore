@@ -1,0 +1,66 @@
+# ============================================================
+# Askesis — depoya girmeyecekler
+#
+# site_code/ klasörünün köküne konuyor; frontend ve backend'i birden
+# kapsıyor. Frontend'in kendi .gitignore'u duruyor, ikisi çakışmıyor.
+# ============================================================
+ 
+# --- Sırlar --------------------------------------------------
+# EN KRİTİK SATIRLAR. API anahtarları bir kez GitHub'a gittiğinde
+# geri alınamaz: commit'i silsen bile geçmişte kalıyor ve halka açık
+# depolarda saniyeler içinde taranıp kullanılıyor.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+ 
+# --- Python --------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+ 
+# --- Uygulama verisi ----------------------------------------
+# Havuz veritabanı, referanslar, yüklenen sınavlar, üretilen şekiller.
+# Bunlar kod değil VERİ: her makinede farklı, boyutları büyük ve
+# yedeklemeyle korunuyorlar (bkz. scripts/backup.py).
+data/
+logs/
+backups/
+*.db
+*.db-wal
+*.db-shm
+ 
+# --- LaTeX ara dosyaları ------------------------------------
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+ 
+# --- Node / Next ---------------------------------------------
+node_modules/
+.next/
+out/
+build/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+ 
+# --- Editör ve işletim sistemi -------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+ 
+# --- Geçici -------------------------------------------------
+*.tmp
+*.bak
+tmp/
