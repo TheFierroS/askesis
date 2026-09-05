@@ -12,6 +12,7 @@ başlatma anında görmek istiyoruz.
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # app/config.py -> app/ -> proje kökü
@@ -26,6 +27,17 @@ class Settings(BaseSettings):
         # utf-8-sig, Notepad'in eklediği görünmez BOM işaretini yutar.
         env_file_encoding="utf-8-sig",
         extra="ignore",
+        # Liste alanlarını pydantic'in kendisi JSON olarak çözmesin.
+        #
+        # Varsayılan davranışta `ALLOWED_ORIGINS=` gibi BOŞ bir satır
+        # json.loads("") çağrısına düşüyor ve uygulama hiç açılmadan
+        # çöküyordu — üstelik hata mesajı sorunun .env'deki boş bir satır
+        # olduğunu söylemiyordu.
+        #
+        # Kapatınca değerler ham metin olarak geliyor ve aşağıdaki
+        # parse_list doğrulayıcısı işi devralıyor: boş satır, JSON dizisi ve
+        # virgüllü yazım, üçü de çalışıyor.
+        enable_decoding=False,
     )
 
     # --- Sağlayıcı anahtarları ---
@@ -190,6 +202,56 @@ class Settings(BaseSettings):
     # --- Loglama ---
     log_dir: str = "./logs"
     log_level: str = "INFO"
+
+
+    @field_validator(
+        "allowed_origins",
+        "clerk_authorized_parties",
+        "clerk_admin_user_ids",
+        mode="before",
+    )
+    @classmethod
+    def parse_list(cls, value: object, info: ValidationInfo) -> object:
+        """
+        Liste alanlarını .env'den okurken esnek davranır.
+
+        Pydantic bu alanları JSON olarak ayrıştırıyor. `.env` içinde satır
+        boş bırakılırsa ("ALLOWED_ORIGINS=") ayrıştırma çöküyor ve uygulama
+        hiç açılmıyor — boş bırakmak varsayılana dönmek anlamına gelmiyordu.
+
+        Üç yazım da kabul ediliyor:
+            ALLOWED_ORIGINS=                       → varsayılan
+            ALLOWED_ORIGINS=["https://a","https://b"]
+            ALLOWED_ORIGINS=https://a,https://b
+
+        Sonuncusu elle yazarken en kolayı: köşeli parantez ve tırnak
+        unutmak kolay, virgül unutmak zor.
+        """
+        if not isinstance(value, str):
+            return value
+
+        text = value.strip()
+
+        if not text:
+            # Boş satır: alanın kendi varsayılanına dönüyoruz.
+            # None döndürmek işe yaramıyor — pydantic onu "liste değil" diye
+            # reddediyor, varsayılana geri düşmüyor.
+            field = cls.model_fields.get(info.field_name or "")
+            return field.get_default() if field else []
+
+        if text.startswith("["):
+            # JSON dizisi: otomatik çözme kapalı olduğu için burada çözüyoruz.
+            import json
+
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                # Bozuk JSON'da uygulamayı çökertmek yerine virgüllü yazım
+                # gibi ayrıştırmayı deniyoruz; tırnak veya köşeli parantez
+                # unutmak sık yapılan bir hata.
+                text = text.strip("[]")
+
+        return [item.strip().strip('"\'') for item in text.split(",") if item.strip()]
 
 
 @lru_cache

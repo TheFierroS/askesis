@@ -445,15 +445,18 @@ def exam_pdf(
         figure_names[index] = name
         assets[name] = path.read_bytes()
 
-    tex = latex.build_exam_tex(
-        [q.prompt for q in questions],
-        course=request.course,
-        exam_type=request.exam_type,
-        figures=figure_names,
-    )
-
     try:
-        pdf_bytes = latex.compile_pdf(tex, assets)
+        pdf_bytes, skipped = latex.render_exam(
+            [q.prompt for q in questions],
+            course=request.course,
+            exam_type=request.exam_type,
+            figures=figure_names,
+            assets=assets,
+        )
+        if skipped:
+            logger.warning(
+                "%d soru PDF'e alınamadı (indeks: %s)", len(skipped), skipped
+            )
     except latex.LatexNotInstalled as exc:
         # Yapılandırma eksiği, istemci hatası değil.
         logger.error("LaTeX kurulu değil: %s", exc)

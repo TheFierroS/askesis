@@ -80,6 +80,41 @@ def _escape_text(text: str) -> str:
     return out
 
 
+# `cases` ortamı iki sütun kabul ediyor: ifade ve koşul.
+_CASES_BLOCK = re.compile(r"(\\begin\{cases\})(.*?)(\\end\{cases\})", re.DOTALL)
+
+
+def _fix_cases_columns(body: str) -> str:
+    """
+    `cases` içindeki fazla hizalama işaretlerini temizler.
+
+    Model denklem sistemlerini bazen şöyle yazıyor:
+
+        \\begin{cases} x_1 & + & 2x_2 & = & 3 \\\\ ... \\end{cases}
+
+    Her `&` bir sütun ayracı ve `cases` yalnızca iki sütun tanıyor; üçüncüden
+    itibaren LaTeX "Extra alignment tab" deyip BÜTÜN belgeyi reddediyor —
+    tek bir soru yüzünden kullanıcı hiç PDF alamıyor.
+
+    Fazla ayraçları boşlukla değiştiriyoruz: denklem doğru diziliyor, yalnızca
+    eşittir işaretleri hizalanmamış oluyor. Görsel olarak küçük bir kayıp,
+    belgeyi kaybetmeye göre hiçbir şey.
+    """
+
+    def repair(match: re.Match[str]) -> str:
+        rows = match.group(2).split(r"\\\\")
+        fixed = []
+        for row in rows:
+            parts = row.split("&")
+            if len(parts) > 2:
+                # İlk ayracı koru (ifade | koşul), gerisini boşluğa çevir.
+                row = parts[0] + "&" + " ".join(parts[1:])
+            fixed.append(row)
+        return match.group(1) + r"\\\\".join(fixed) + match.group(3)
+
+    return _CASES_BLOCK.sub(repair, body)
+
+
 def markdown_to_latex(text: str) -> str:
     """
     Soru metnini LaTeX gövdesine çevirir.
@@ -113,7 +148,7 @@ def markdown_to_latex(text: str) -> str:
         escaped = escaped.replace("\n", " \\\\ ")
         rendered.append(escaped)
 
-    body = "".join(rendered)
+    body = _fix_cases_columns("".join(rendered))
     # Blok matematiğin hemen öncesindeki satır sonu LaTeX'i kızdırıyor
     # ("There's no line here to end").
     body = re.sub(r"\\\\\s*(\n?\\\[)", r"\1", body)
@@ -131,6 +166,11 @@ DOCUMENT_TEMPLATE = r"""\documentclass[11pt,a4paper]{article}
 \usepackage{enumitem}
 \usepackage{fancyhdr}
 \usepackage{graphicx}
+
+% Matrisler varsayılan olarak en fazla 10 sütun alıyor; daha genişi
+% "Extra alignment tab" hatası veriyor. Genişletilmiş katsayı matrisleri
+% bu sınıra dayanabiliyor.
+\setcounter{MaxMatrixCols}{20}
 
 \pagestyle{fancy}
 \fancyhf{}
@@ -225,6 +265,75 @@ def build_exam_tex(
         .replace("DATE", date.today().strftime("%d.%m.%Y"))
         .replace("BODY", body)
     )
+
+
+def render_exam(
+    questions: list[str],
+    *,
+    course: str,
+    exam_type: str,
+    figures: dict[int, str] | None = None,
+    assets: dict[str, bytes] | None = None,
+) -> tuple[bytes, list[int]]:
+    """
+    Sınav kağıdını derler; derlenemeyen soruları atlayarak.
+
+    NEDEN BÖYLE
+    LaTeX tek bir bozuk soruda bütün belgeyi reddediyor. Model bazen
+    `\\begin{cases}` içine fazladan hizalama işareti koyuyor ya da desteklenmeyen
+    bir komut kullanıyor; o tek soru yüzünden kullanıcı hiç PDF alamıyordu.
+
+    Önce hepsini birden deniyoruz — normal durumda tek derleme yeter. Hata
+    olursa soruları tek tek derleyip suçluyu buluyor ve onsuz yeniden
+    kuruyoruz. Kullanıcı dört soruluk bir PDF alıyor, hiç almamaktansa.
+
+    Dönen: (pdf baytları, atlanan soruların indeksleri)
+    """
+    figures = figures or {}
+
+    try:
+        tex = build_exam_tex(
+            questions, course=course, exam_type=exam_type, figures=figures
+        )
+        return compile_pdf(tex, assets), []
+    except LatexCompileError:
+        logger.info("Toplu derleme başarısız, sorular tek tek deneniyor")
+
+    # Suçluyu bul: her soruyu tek başına derle.
+    good: list[int] = []
+    bad: list[int] = []
+
+    for index, question in enumerate(questions):
+        single_figures = {0: figures[index]} if index in figures else {}
+        try:
+            tex = build_exam_tex(
+                [question],
+                course=course,
+                exam_type=exam_type,
+                figures=single_figures,
+            )
+            compile_pdf(tex, assets)
+            good.append(index)
+        except LatexCompileError as exc:
+            logger.warning("Soru %d PDF'e alınamadı: %s", index, exc)
+            bad.append(index)
+
+    if not good:
+        raise LatexCompileError("Hiçbir soru derlenemedi")
+
+    # Kalanlarla yeniden kur. Şekil indeksleri kaydığı için eşleme
+    # yeniden hesaplanıyor.
+    kept = [questions[i] for i in good]
+    kept_figures = {
+        new_index: figures[old_index]
+        for new_index, old_index in enumerate(good)
+        if old_index in figures
+    }
+
+    tex = build_exam_tex(
+        kept, course=course, exam_type=exam_type, figures=kept_figures
+    )
+    return compile_pdf(tex, assets), bad
 
 
 def compile_pdf(tex_source: str, assets: dict[str, bytes] | None = None) -> bytes:
