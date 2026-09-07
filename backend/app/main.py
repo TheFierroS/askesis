@@ -665,14 +665,19 @@ def admin_pool(_: str = Depends(require_admin)) -> list[PoolStatOut]:
 # kalıyor.
 
 
-def _slug(course: str) -> str:
+def _slug(course: str, exam_type: str) -> str:
     """
-    Ders adını URL parçasına çevirir: "Linear Algebra" -> "linear-algebra".
+    Ders ve sınav türünü URL parçasına çevirir:
+    ("Linear Algebra", "Midterm") -> "linear-algebra-midterm".
 
-    Ders adları katalogdan geliyor ve İngilizce, o yüzden dönüşüm basit
-    kalabiliyor. Türkçe ad eklenirse burası yeniden düşünülmeli.
+    Sınav türü slug'a DAHİL: vize ve final farklı konuları ölçüyor ve farklı
+    aramalarla bulunuyor ("linear algebra final questions" ayrı bir arama).
+    Tek sayfada sekme yapsaydık ikisi tek adres olarak yarışırdı.
+
+    Ayrıca tür olmadan slug çakışıyordu: aynı dersin vizesi ve finali aynı
+    adresi üretiyor, ikincisi erişilemez kalıyordu.
     """
-    return "-".join(course.lower().split())
+    return "-".join(f"{course} {exam_type}".lower().split())
 
 
 # Herkese açık sayfa için asgari havuz büyüklüğü.
@@ -701,7 +706,7 @@ def public_courses() -> list[dict]:
     """
     return [
         {
-            "slug": _slug(row["course"]),
+            "slug": _slug(row["course"], row["exam_type"]),
             "course": row["course"],
             "exam_type": row["exam_type"],
             "question_count": row["total"],
@@ -727,7 +732,7 @@ def public_course_detail(slug: str) -> dict:
         (
             row
             for row in pool.stats()
-            if _slug(row["course"]) == slug and row["total"] >= PUBLIC_MIN_POOL
+            if _slug(row["course"], row["exam_type"]) == slug and row["total"] >= PUBLIC_MIN_POOL
         ),
         None,
     )
@@ -746,4 +751,15 @@ def public_course_detail(slug: str) -> dict:
         "updated_at": match["newest"],
         "topics": pool.topic_breakdown(department, course, exam_type),
         "samples": pool.sample_questions(department, course, exam_type, limit=5),
+        # Aynı dersin diğer sınav türleri: sayfada geçiş bağlantısı olarak
+        # gösteriliyor. Öğrenci vize sayfasına gelip finali de arayabilir.
+        "siblings": [
+            {
+                "slug": _slug(other["course"], other["exam_type"]),
+                "exam_type": other["exam_type"],
+            }
+            for other in pool.stats()
+            if other["course"] == course
+            and other["total"] >= PUBLIC_MIN_POOL
+        ],
     }

@@ -3,15 +3,32 @@
 import React from "react";
 import Link from "next/link";
 
-const PLUM = "#290f28";
-const HONEY = "#F0C986";
+import Logo from "../components/Logo";
+import ThemeSwitch from "../components/ThemeSwitch";
 
+/**
+ * 404 sayfası.
+ *
+ * Televizyon çizimi kendi sıcak paletini koruyor — bir illüstrasyon, marka
+ * renklerine birebir uymak zorunda değil. Ama zemin, düğmeler ve hoparlör
+ * noktaları tema değişkenlerinden geliyor: eskiden sabit mor (#290f28) idi ve
+ * açık temada sayfanın geri kalanından kopuyordu.
+ */
 export default function NotFound() {
     return (
         <main
             className="min-h-screen flex flex-col items-center justify-center overflow-hidden relative p-4"
-            style={{ backgroundColor: PLUM }}
+            style={{ backgroundColor: "var(--bg)", color: "var(--fg)" }}
         >
+            <div className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 pointer-events-none">
+                <Link href="/" className="pointer-events-auto" aria-label="Askesis home">
+                    <Logo size={30} />
+                </Link>
+                <span className="pointer-events-auto">
+                    <ThemeSwitch />
+                </span>
+            </div>
+
             <StyledWrapper>
                 <div className="main_wrapper">
                     <div className="main">
@@ -83,20 +100,25 @@ export default function NotFound() {
                 </div>
             </StyledWrapper>
 
-            {/* Ana Sayfaya Dön Butonu */}
-            <Link href="/" className="z-20 mt-10">
-                <button className="btn-create-account">
-                    ← Back to Safety
-                    <div className="icon">
-                        <svg height="24" width="24" viewBox="0 0 24 24">
-                            <path d="M0 0h24v24H0z" fill="none"></path>
-                            <path
-                                d="M16.172 11l-5.364-5.364 1.414-1.414L20 12l-7.778 7.778-1.414-1.414L16.172 13H4v-2z"
-                                fill="currentColor"
-                            ></path>
-                        </svg>
-                    </div>
-                </button>
+            <p
+                className="z-20 mt-4 text-sm text-center max-w-[36ch]"
+                style={{ color: "var(--fg-muted)", fontFamily: "var(--font-geist-sans)" }}
+            >
+                This page does not exist. It may have been moved, or the link was
+                mistyped.
+            </p>
+
+            <Link href="/" className="btn-create-account z-20 mt-6">
+                Back to safety
+                <div className="icon">
+                    <svg height="24" width="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" />
+                        <path
+                            d="M16.172 11l-5.364-5.364 1.414-1.414L20 12l-7.778 7.778-1.414-1.414L16.172 13H4v-2z"
+                            fill="currentColor"
+                        />
+                    </svg>
+                </div>
             </Link>
         </main>
     );
@@ -106,6 +128,24 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
     return (
         <>
             <style jsx global>{`
+        /* Televizyonun kendi paleti.
+           Tema değişkenlerine bağlamak yerine iki tema için ayrı değerler:
+           çizimdeki gölgeler ve iç parlamalar bu tona göre ayarlı, doğrudan
+           var(--bg) vermek onları bozuyor. */
+        :root[data-theme="dark"] .main_wrapper {
+          --tv-body: #e08a5a;
+          --tv-light: #f2b590;
+          --tv-knob: #1c1c1c;
+          --tv-knob-inset: #4a4a4a;
+        }
+
+        :root[data-theme="light"] .main_wrapper {
+          --tv-body: #d97a52;
+          --tv-light: #eda587;
+          --tv-knob: #3a3632;
+          --tv-knob-inset: #6b645c;
+        }
+
         .main_wrapper {
           display: flex;
           align-items: center;
@@ -129,7 +169,7 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           height: 5em;
           border-radius: 50%;
           border: 2px solid black;
-          background-color: ${HONEY};
+          background-color: var(--tv-body);
           margin-bottom: -6em;
           margin-left: 0em;
           z-index: -1;
@@ -145,7 +185,8 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           border-radius: 45%;
           transform: rotate(140deg);
           border: 4px solid transparent;
-          box-shadow: inset 0px 16px rgba(59, 22, 58, 0.4), inset 0px 16px 1px 1px rgba(59, 22, 58, 0.4);
+          box-shadow: inset 0px 16px rgba(60, 45, 25, 0.35),
+            inset 0px 16px 1px 1px rgba(60, 45, 25, 0.35);
         }
 
         .antenna::after {
@@ -157,7 +198,7 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           width: 1em;
           height: 0.5em;
           border-radius: 50%;
-          background-color: #fce2b6;
+          background-color: var(--tv-light);
         }
 
         .antenna::before {
@@ -169,7 +210,7 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           width: 1.5em;
           height: 0.8em;
           border-radius: 50%;
-          background-color: #fce2b6;
+          background-color: var(--tv-light);
         }
 
         .a1 {
@@ -239,11 +280,11 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           height: 9em;
           margin-top: 3em;
           border-radius: 15px;
-          background-color: ${HONEY};
+          background-color: var(--tv-body);
           display: flex;
           justify-content: center;
           border: 2px solid #1d0e01;
-          box-shadow: inset 0.2em 0.2em #fce2b6;
+          box-shadow: inset 0.2em 0.2em var(--tv-light);
           position: relative;
         }
 
@@ -253,8 +294,13 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           width: 17em;
           height: 9em;
           border-radius: 15px;
-          background: repeating-radial-gradient(${HONEY} 0 0.0001%, #00000070 0 0.0002%) 50% 0/2500px 2500px,
-            repeating-conic-gradient(${HONEY} 0 0.0001%, #00000070 0 0.0002%) 60% 60%/2500px 2500px;
+          background: repeating-radial-gradient(
+                var(--tv-body) 0 0.0001%,
+                #00000070 0 0.0002%
+              )
+              50% 0/2500px 2500px,
+            repeating-conic-gradient(var(--tv-body) 0 0.0001%, #00000070 0 0.0002%) 60%
+              60%/2500px 2500px;
           background-blend-mode: difference;
           opacity: 0.09;
         }
@@ -273,7 +319,7 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           align-self: center;
           justify-content: center;
           border-radius: 15px;
-          box-shadow: 3.5px 3.5px 0px #fce2b6;
+          box-shadow: 3.5px 3.5px 0px var(--tv-light);
         }
 
         .screen_out1 {
@@ -285,13 +331,13 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           border-radius: 10px;
         }
 
-        /* SCREEN VISIBILITY FIX */
         .screen {
           width: 13em;
           height: 7.85em;
-          font-family: Montserrat, sans-serif;
+          font-family: var(--font-display), sans-serif;
           border: 2px solid #1d0e01;
-          background: repeating-radial-gradient(#000 0 0.0001%, #ffffff 0 0.0002%) 50% 0/2500px 2500px,
+          background: repeating-radial-gradient(#000 0 0.0001%, #ffffff 0 0.0002%) 50% 0/2500px
+              2500px,
             repeating-conic-gradient(#000 0 0.0001%, #ffffff 0 0.0002%) 60% 60%/2500px 2500px;
           background-blend-mode: difference;
           animation: b_anim 0.2s infinite alternate;
@@ -313,6 +359,14 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
         @keyframes b_anim {
           100% {
             background-position: 50% 0, 60% 50%;
+          }
+        }
+
+        /* Ekran titremesi sürekli hareket eden bir animasyon.
+           Hareket hassasiyeti olan kullanıcılar için durduruyoruz. */
+        @media (prefers-reduced-motion: reduce) {
+          .screen {
+            animation: none;
           }
         }
 
@@ -343,7 +397,7 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           width: 4.25em;
           align-self: center;
           height: 8em;
-          background-color: #e0b775;
+          background-color: color-mix(in srgb, var(--tv-body) 82%, #000);
           border: 2px solid #1d0e01;
           padding: 0.6em;
           border-radius: 10px;
@@ -352,7 +406,7 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           justify-content: center;
           flex-direction: column;
           row-gap: 0.75em;
-          box-shadow: 3px 3px 0px #e0b775;
+          box-shadow: 3px 3px 0px color-mix(in srgb, var(--tv-body) 82%, #000);
         }
 
         .b1,
@@ -360,9 +414,10 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           width: 1.65em;
           height: 1.65em;
           border-radius: 50%;
-          background-color: ${PLUM};
+          background-color: var(--tv-knob);
           border: 2px solid black;
-          box-shadow: inset 2px 2px 1px #5a2359, -2px 0px #200920, -2px 0px 0px 1px black;
+          box-shadow: inset 2px 2px 1px var(--tv-knob-inset), -2px 0px #101010,
+            -2px 0px 0px 1px black;
           position: relative;
         }
 
@@ -433,9 +488,9 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           width: 0.65em;
           height: 0.65em;
           border-radius: 50%;
-          background-color: ${PLUM};
+          background-color: var(--tv-knob);
           border: 2px solid black;
-          box-shadow: inset 1.25px 1.25px 1px #5a2359;
+          box-shadow: inset 1.25px 1.25px 1px var(--tv-knob-inset);
         }
 
         .speakers .g {
@@ -471,7 +526,6 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           margin-top: 0.8em;
         }
 
-        /* ORIJINAL DEVASE DIKEY 404 STILI */
         .text_404 {
           position: absolute;
           display: flex;
@@ -481,9 +535,9 @@ function StyledWrapper({ children }: { children: React.ReactNode }) {
           margin-bottom: 2em;
           align-items: center;
           justify-content: center;
-          opacity: 0.25;
-          font-family: Montserrat, sans-serif;
-          color: ${HONEY};
+          opacity: 0.2;
+          font-family: var(--font-heading), sans-serif;
+          color: var(--accent);
           pointer-events: none;
         }
 

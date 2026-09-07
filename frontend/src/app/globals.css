@@ -100,8 +100,21 @@
     --danger: #e85a4f;
 
     --glow: radial-gradient(circle, rgba(255, 101, 47, 0.22) 0%, transparent 70%);
-    --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
-    --shadow-btn: 0 10px 28px -12px rgba(255, 101, 47, 0.55);
+    /* Gölgenin RENGİ ayrı bir değişkende.
+
+       box-shadow bileşik bir değer ("0 10px 28px -12px <renk>") ve @property
+       onu kaydedemiyor — kayıt yalnızca <color>, <length> gibi bilinen
+       tiplerde çalışıyor. Kaydedilemeyen değişken animasyon listesine de
+       giremiyor, dolayısıyla tema değişiminde renkler 0.35s boyunca akarken
+       gölge anında sıçrıyordu: butonlar "patlamış" gibi görünüyordu.
+
+       Rengi ayırınca o kaydedilebiliyor. Renk aktıkça tarayıcı box-shadow'u
+       her karede yeniden hesaplıyor ve gölge de diğer renklerle aynı hızda
+       geçiyor. */
+    --shadow-lg-color: rgba(0, 0, 0, 0.7);
+    --shadow-btn-color: rgba(255, 101, 47, 0.55);
+    --shadow-lg: 0 24px 60px -20px var(--shadow-lg-color);
+    --shadow-btn: 0 10px 28px -12px var(--shadow-btn-color);
 }
 
 /* ---------- LIGHT ---------- */
@@ -146,8 +159,10 @@
     --danger: #c7443a;
 
     --glow: radial-gradient(circle, rgba(216, 195, 165, 0.75) 0%, transparent 70%);
-    --shadow-lg: 0 24px 60px -24px rgba(39, 39, 39, 0.28);
-    --shadow-btn: 0 10px 26px -14px rgba(199, 68, 58, 0.6);
+    --shadow-lg-color: rgba(39, 39, 39, 0.28);
+    --shadow-btn-color: rgba(199, 68, 58, 0.6);
+    --shadow-lg: 0 24px 60px -24px var(--shadow-lg-color);
+    --shadow-btn: 0 10px 26px -14px var(--shadow-btn-color);
 }
 
 :root,
@@ -318,8 +333,29 @@ body {
     initial-value: #e85a4f;
 }
 
+/* Gölge renkleri de kayıtlı: yukarıdaki --shadow-*-color değişkenlerinin
+   animasyonlanabilmesi için gerekiyor. */
+@property --shadow-lg-color {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(0, 0, 0, 0.7);
+}
+@property --shadow-btn-color {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: rgba(255, 101, 47, 0.55);
+}
+
 /* Geçiş yalnızca ilk boyamadan sonra: sayfa açılırken tema animasyonu
-   görmek istemiyoruz. */
+   görmek istemiyoruz.
+
+   --on-accent daha KISA sürede geçiyor (0.08s). Buton yazısının rengi koyu
+   temada neredeyse siyah, açık temada neredeyse beyaz; iki uç arasındaki
+   yolun ortası gri ve turuncu zeminde gri okunmuyor. 0.35s verildiğinde yazı
+   yarım saniye boyunca soluklaşıp geri geliyordu. Anında değiştirmek de
+   çözüm değil: her şey akarken tek bir öğenin sıçraması göze batıyor.
+   Kısa süre ikisinin arası — gri an bir titreme değil, hızlı bir dönüş
+   olarak okunuyor. */
 html.theme-ready {
     transition:
         --bg 0.35s ease,
@@ -341,10 +377,12 @@ html.theme-ready {
         --accent-solid 0.35s ease,
         --accent-hover 0.35s ease,
         --accent-ring 0.35s ease,
-        --on-accent 0.35s ease,
         --border-hover 0.35s ease,
+        --on-accent 0.08s ease,
         --surface-strong 0.35s ease,
-        --danger 0.35s ease;
+        --danger 0.35s ease,
+        --shadow-lg-color 0.35s ease,
+        --shadow-btn-color 0.35s ease;
 }
 
 /* Eleman seviyesinde AYRICA transition tanımlamıyoruz.

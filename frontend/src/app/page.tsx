@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SignUpButton, SignInButton, useUser } from "@clerk/nextjs";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import StrokeText from "../components/StrokeText";
@@ -622,6 +623,67 @@ export default function Home() {
               className="w-full"
             >
               <SampleQuestions accentFor={(i) => accentAt(c, i)} />
+            </motion.div>
+
+            {/* Ders dizinine giden çağrı.
+
+                Buraya konuyor çünkü ziyaretçi az önce gerçek üretilmiş
+                soruları gördü; "peki benim dersim var mı" sorusu tam bu
+                noktada doğuyor. Fiyatlandırmadan önce olması da doğru:
+                insan ne aldığını görmeden fiyata bakmıyor.
+
+                Arama motoru açısından ayrıca kritik: bot ders sayfalarını
+                ancak onlara giden bir bağlantı üzerinden keşfediyor.
+                Sitemap yardımcı oluyor ama tek başına yeterli sayılmıyor.
+
+                Buton Link, framer animasyonu sarmalayıcıda: motion(Link)
+                framer sürümüne göre değişiyor, sarmalamak her sürümde
+                çalışıyor. Bot açısından da fark yok — ortada gerçek bir
+                <a href> var, buton taklidi bir onClick değil. */}
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.5 }}
+              className="text-sm text-center max-w-[42ch] mt-6"
+              style={{
+                color: "var(--fg-muted)",
+                fontFamily: "var(--font-geist-sans)",
+              }}
+            >
+              Every course with a pool ready is listed, with the topics its
+              exams keep coming back to.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              whileHover={{
+                scale: 1.04,
+                boxShadow: `0 12px 32px -8px ${c.accentGlow}`,
+              }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ duration: 0.5 }}
+              style={{ borderRadius: 9999, display: "inline-flex" }}
+            >
+              <Link href="/courses" className="btn-create-account">
+                Browse courses
+                <div className="icon">
+                  <svg
+                    height="24"
+                    width="24"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M0 0h24v24H0z" fill="none"></path>
+                    <path
+                      d="M16.172 11l-5.364-5.364 1.414-1.414L20 12l-7.778 7.778-1.414-1.414L16.172 13H4v-2z"
+                      fill="currentColor"
+                    ></path>
+                  </svg>
+                </div>
+              </Link>
             </motion.div>
           </section>
 

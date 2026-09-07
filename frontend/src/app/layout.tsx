@@ -52,12 +52,33 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: `${BRAND.name} — ${BRAND.tagline}`,
+    // Açıklama Türkçeydi, İngilizceye çevrildi: sitenin geri kalanı İngilizce
+    // ve paylaşım kartında tek başına Türkçe bir cümle çıkması tuhaftı.
     description:
-      "Bölümünün çıkmış sınav sorularından, dersine ve sınav türüne göre " +
-      "yeni pratik soruları.",
-    url: "https://askesisapp.net",
+      "Turn real past exam papers from your department into fresh practice " +
+      "questions, matched to your course and exam type.",
+    url: "/",
     siteName: BRAND.name,
     type: "website",
+    // Paylaşım görseli. Alt sayfalar kendi openGraph'ını yazıyor ama görsel
+    // belirtmiyor; Next.js eksik alanları buradan devralıyor, yani og.png
+    // hepsinde geçerli. Ders başına ayrı görsel üretmek şimdilik gereksiz iş.
+    //
+    // Not: bu görsel Google arama sonuçlarında GÖRÜNMÜYOR ve sıralamayı
+    // etkilemiyor. WhatsApp, Discord, X gibi yerlerde link paylaşıldığında
+    // çıkan kart için.
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: `${BRAND.name} — ${BRAND.tagline}`,
+      },
+    ],
+  },
+  twitter: {
+    // "summary" küçük kare bir resim gösteriyor; büyük kart için bu şart.
+    card: "summary_large_image",
   },
   robots: {
     index: true,
