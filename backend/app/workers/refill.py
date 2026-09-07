@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import random
 import time
+from datetime import datetime, timedelta, timezone
 
 from app.config import get_settings
 from app.services import figures, generator, pool, retrieval
@@ -230,8 +231,10 @@ def start_scheduler():
         # çalıştırmasın: en fazla bir tanesi telafi edilsin.
         coalesce=True,
         max_instances=1,
-        # İlk tur hemen değil, uygulama otursun diye biraz gecikmeli başlasın.
-        next_run_time=None,
+        # İlk tur uygulama otursun diye 30 saniye gecikmeli.
+        # DİKKAT: buraya None vermek "gecikmeli başla" değil, "duraklatılmış
+        # olarak ekle" demek — iş hiç çalışmaz.
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=30),
     )
 
     scheduler.start()
