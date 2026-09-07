@@ -762,3 +762,62 @@ def known_topics(department: str, course: str, exam_type: str) -> list[str]:
         ).fetchall()
 
     return [row["topic"] for row in rows]
+
+
+def topic_breakdown(
+    department: str, course: str, exam_type: str, limit: int = 12
+) -> list[dict]:
+    """
+    Konu dağılımı: hangi konudan kaç soru var, çoktan aza.
+
+    Herkese açık ders sayfasında gösteriliyor. "Bu dersin vizesinde en çok ne
+    çıkıyor" sorusunun cevabı — öğrencinin aradığı şey bu.
+
+    Liste kırpılıyor: uzun kuyrukta aynı kavramın tek soruluk varyasyonları
+    birikiyor ("basis change", "basis transition", "basis change in P1") ve
+    sayfayı okunmaz hale getiriyor. Üstteki bir düzine konu dersi zaten
+    temsil ediyor.
+    """
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT topic, COUNT(*) AS n
+            FROM questions
+            WHERE department = ? AND course = ? AND exam_type = ?
+              AND topic != ''
+            GROUP BY topic
+            ORDER BY n DESC, topic
+            LIMIT ?
+            """,
+            (department, course, exam_type, limit),
+        ).fetchall()
+
+    return [{"topic": row["topic"], "count": row["n"]} for row in rows]
+
+
+def sample_questions(
+    department: str, course: str, exam_type: str, limit: int = 5
+) -> list[dict]:
+    """
+    Herkese açık sayfada gösterilecek örnek sorular.
+
+    Teslimat kaydı tutmuyor: bunlar kimseye "verilmiş" sayılmıyor, yalnızca
+    vitrin. Aynı sorular herkese görünüyor ve kredi düşmüyor.
+
+    Şekilli sorular alınmıyor — sayfada şekil gösterme yolu yok ve şekle atıf
+    yapan bir soru şekilsiz anlamsız kalıyor.
+    """
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, prompt, topic, difficulty
+            FROM questions
+            WHERE department = ? AND course = ? AND exam_type = ?
+              AND has_figure = 0
+            ORDER BY created_at
+            LIMIT ?
+            """,
+            (department, course, exam_type, limit),
+        ).fetchall()
+
+    return [dict(row) for row in rows]

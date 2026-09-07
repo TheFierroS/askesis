@@ -656,3 +656,94 @@ def delete_document(document_id: str, _: str = Depends(require_admin)) -> Respon
 def admin_pool(_: str = Depends(require_admin)) -> list[PoolStatOut]:
     """Ders ders havuz durumu: kaç soru hazır."""
     return [PoolStatOut(**row) for row in pool.stats()]
+
+
+# --- Herkese açık uç noktalar -------------------------------------------------
+#
+# Bunlar kimlik doğrulaması istemiyor: arama motoru botu da erişebilmeli.
+# Soru metinleri yalnızca birkaç örnekle sınırlı; havuzun tamamı korumalı
+# kalıyor.
+
+
+def _slug(course: str) -> str:
+    """
+    Ders adını URL parçasına çevirir: "Linear Algebra" -> "linear-algebra".
+
+    Ders adları katalogdan geliyor ve İngilizce, o yüzden dönüşüm basit
+    kalabiliyor. Türkçe ad eklenirse burası yeniden düşünülmeli.
+    """
+    return "-".join(course.lower().split())
+
+
+# Herkese açık sayfa için asgari havuz büyüklüğü.
+#
+# Sayfada beş örnek soru gösteriliyor. Havuz buna yakınsa vitrin ürünün
+# tamamı oluyor: ziyaretçinin kayıt olmak için bir sebebi kalmıyor. Ayrıca
+# birkaç soruluk bir sayfa arama motorunda da zayıf içerik sayılıyor.
+#
+# Bir dersin havuzu bu eşiği hızlı geçiyor — worker on dakikada beş soru
+# ekliyor — yani sayfa uzun süre gizli kalmıyor.
+PUBLIC_MIN_POOL = 20
+
+
+@app.get("/public/courses")
+def public_courses() -> list[dict]:
+    """
+    Herkese açık sayfası olan dersler.
+
+    Bölüm dışarı verilmiyor. Ortak dersler tek havuzda toplanıyor
+    (shared_courses.py) ve o havuz ilk yükleyenin seçtiği bölümün adıyla
+    duruyor — Linear Algebra dört bölümde okutulsa da veritabanında tek bir
+    bölüm görünüyor. Bunu sayfada göstermek diğer bölümlerin öğrencisine
+    "bu ders benim değil" dedirtirdi. Zaten kimse dersi bölüm adıyla aramıyor.
+
+    Boş ve zayıf havuzlar listede yok: içeriği olmayan sayfa açmıyoruz.
+    """
+    return [
+        {
+            "slug": _slug(row["course"]),
+            "course": row["course"],
+            "exam_type": row["exam_type"],
+            "question_count": row["total"],
+            "updated_at": row["newest"],
+        }
+        for row in pool.stats()
+        if row["total"] >= PUBLIC_MIN_POOL
+    ]
+
+
+@app.get("/public/courses/{slug}")
+def public_course_detail(slug: str) -> dict:
+    """
+    Tek bir dersin herkese açık özeti.
+
+    Konu dağılımı ve birkaç örnek soru. Havuzun tamamı değil: vitrin kadarı.
+
+    Slug'ı ders adına çevirmek yerine mevcut kombinasyonları tarayıp
+    eşleştiriyoruz. Tersine çevirmek ("linear-algebra" -> "Linear Algebra")
+    büyük harf tahminine dayanırdı ve "Calculus I" gibi adlarda tutmazdı.
+    """
+    match = next(
+        (
+            row
+            for row in pool.stats()
+            if _slug(row["course"]) == slug and row["total"] >= PUBLIC_MIN_POOL
+        ),
+        None,
+    )
+    if match is None:
+        raise HTTPException(status_code=404, detail="Ders bulunamadı")
+
+    department = match["department"]
+    course = match["course"]
+    exam_type = match["exam_type"]
+
+    return {
+        "slug": slug,
+        "course": course,
+        "exam_type": exam_type,
+        "question_count": match["total"],
+        "updated_at": match["newest"],
+        "topics": pool.topic_breakdown(department, course, exam_type),
+        "samples": pool.sample_questions(department, course, exam_type, limit=5),
+    }
