@@ -17,13 +17,28 @@ import { titleCase } from "../lib/publicApi";
  * duruyor, yalnızca çubuğun genişliği animasyonlu. Arama motoru konu
  * adlarını ve sayıları olduğu gibi görüyor.
  */
-export default function TopicBars({ topics }: { topics: PublicTopic[] }) {
+export default function TopicBars({
+    topics,
+    totalQuestions,
+}: {
+    topics: PublicTopic[];
+    totalQuestions: number;
+}) {
     if (topics.length === 0) return null;
 
     // En sık çıkan konu çubuğun tam boyunu alıyor, diğerleri ona oranlanıyor.
     const busiest = topics[0]?.count ?? 1;
 
+    // Liste kırpık: backend en sık on iki konuyu döndürüyor. Kalan sorular
+    // uzun kuyrukta, aynı kavramın tek soruluk varyasyonlarına dağılmış
+    // durumda ve hepsini listelemek sayfayı okunmaz yapıyordu. Ama sayıların
+    // toplamı havuz büyüklüğünü tutmayınca ziyaretçi haklı olarak
+    // "gerisi nerede" diye soruyor; farkı açıkça yazıyoruz.
+    const shown = topics.reduce((sum, topic) => sum + topic.count, 0);
+    const remaining = Math.max(0, totalQuestions - shown);
+
     return (
+        <>
         <ul className="flex flex-col gap-3.5">
             {topics.map((topic, index) => {
                 const width = Math.max(8, Math.round((topic.count / busiest) * 150));
@@ -70,5 +85,22 @@ export default function TopicBars({ topics }: { topics: PublicTopic[] }) {
                 );
             })}
         </ul>
+
+        {remaining > 0 && (
+            <motion.p
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.35, delay: 0.3 }}
+                className="text-xs mt-4"
+                style={{
+                    color: "var(--fg-faint)",
+                    fontFamily: "var(--font-geist-sans)",
+                }}
+            >
+                …and {remaining} more across smaller topics.
+            </motion.p>
+        )}
+        </>
     );
 }

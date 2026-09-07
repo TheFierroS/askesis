@@ -5,6 +5,16 @@ import { fetchPublicCourses } from "../lib/publicApi";
 const BASE = "https://askesisapp.net";
 
 /**
+ * Sitemap saatte bir yeniden üretiliyor.
+ *
+ * Varsayılan davranışta yalnızca derleme anında oluşuyordu ve orada donuyordu:
+ * yeni bir dersin havuzu eşiği geçtiğinde sitemap'e girmesi için elle yeniden
+ * yayın gerekiyordu. Nitekim slug yapısını değiştirdiğimizde Vercel, sunucuda
+ * git pull yapılmadan önce derledi ve haritada eski adresler kaldı.
+ */
+export const revalidate = 3600;
+
+/**
  * Site haritası.
  *
  * Ders sayfaları elle yazılmıyor: backend hangi derslerin havuzu hazırsa onu

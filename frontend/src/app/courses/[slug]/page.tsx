@@ -184,7 +184,10 @@ export default async function CoursePage({
                         </h2>
                     </Reveal>
 
-                    <TopicBars topics={topics} />
+                    <TopicBars
+                        topics={topics}
+                        totalQuestions={course.question_count}
+                    />
                 </section>
 
                 <section className="flex flex-col gap-7">
