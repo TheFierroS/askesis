@@ -187,6 +187,13 @@ Rules:
    vary WITHIN the same topics: change the vector space, the dimension, the
    size of the matrix, or which part of the same concept you ask for. Produce
    fewer questions rather than inventing a topic that is not in the references.
+   
+17. TOPIC LABELS. If a list of existing topic labels is given below the
+   references, reuse the one that fits instead of inventing a new name for the
+   same thing. Only write a new label when none of them applies.
+   Labels are lowercase, 2-4 words, no punctuation. The same concept must
+   always get the same label: "matrix inverse" and "matrix inversion" must not
+   both exist, nor "change of basis" and "basis change".
 """
 
 

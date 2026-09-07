@@ -81,7 +81,16 @@ def deduplicate(questions: list[GeneratedQuestion]) -> tuple[list[GeneratedQuest
 from app.services.figures import mentions_figure as _mentions_figure  # noqa: E402
 
 
-def _build_user_message(references: list[str], count: int) -> str:
+# Prompta girecek azami etiket sayısı.
+# Sık kullanılanlar başta geldiği için kırpma, dersi en az temsil edenleri
+# atıyor. Sınırsız bırakmak zamanla yüzlerce etiketi prompta doldurup token
+# yakardı.
+MAX_TOPIC_VOCABULARY = 40
+
+
+def _build_user_message(
+    references: list[str], count: int, topics: list[str] | None = None
+) -> str:
     """
     Kullanıcı mesajını kurar.
 
@@ -90,6 +99,9 @@ def _build_user_message(references: list[str], count: int) -> str:
 
     Şekle atıf yapan referanslar ayrıca etiketleniyor: o soru kağıtta bir
     çizimle geliyordu ve karşılığının da şekilli olması gerekiyor.
+
+    Mevcut konu etiketleri de veriliyor (varsa): model her partide aynı
+    kavrama yeni bir ad uydurunca konu dağılımı parçalanıyor.
     """
     blocks = []
     for i, text in enumerate(references, 1):
@@ -102,10 +114,18 @@ def _build_user_message(references: list[str], count: int) -> str:
         )
         blocks.append(f"[Reference {i}]{marker}\n{trimmed}")
 
-    return (
-        "\n\n".join(blocks)
-        + f"\n\nGenerate exactly {count} new questions based on these references."
-    )
+    message = "\n\n".join(blocks)
+
+    if topics:
+        listed = "\n".join(f"- {t}" for t in topics[:MAX_TOPIC_VOCABULARY])
+        message += (
+            "\n\n[Existing topic labels for this course]\n"
+            "Reuse one of these whenever the question fits it. Only invent a "
+            "new label if none applies.\n"
+            f"{listed}"
+        )
+
+    return message + f"\n\nGenerate exactly {count} new questions based on these references."
 
 
 def pick_references(
@@ -142,9 +162,15 @@ def generate_questions(
     if not references:
         raise NoReferencesError(f"{department}/{course}/{exam_type} için referans yok")
 
+    # Bu dersin mevcut etiket sözlüğü. Model listeyi görünce aynı kavrama
+    # yeni ad uydurmak yerine var olanı seçiyor.
+    from app.services.pool import known_topics  # döngüsel import olmasın
+
+    topics = known_topics(department, course, exam_type)
+
     result: GenerationResult = complete_json(
         system=EXAM_GENERATOR_PROMPT,
-        user=_build_user_message(references, count),
+        user=_build_user_message(references, count, topics),
         chain=settings.generation_chain,
         schema=GenerationResult,
         max_tokens=settings.generation_max_tokens,
@@ -183,8 +209,8 @@ def generate_reviewed(
 
     Dönen: (onaylanan sorular, reddedilenlerin gerekçeleri)
 
-    Hakem çağrısı başarısız olursa soruları reddetmiyoruz — denetimsiz geçmek,
-    hiç soru olmamasından iyi. Ama bu durumu log'a düşüyoruz.
+    Hakem çağrısı başarısız olursa soruları havuza almıyoruz: denetimsiz soru
+    göstermektense o turu atlamak daha iyi. Worker bunu boş tur sayıyor.
     """
     from app.services.judge import review_questions  # döngüsel import olmasın
 
@@ -303,7 +329,6 @@ def _backfill_topics(questions: list[GeneratedQuestion]) -> None:
     for question, label in zip(missing, labels, strict=False):
         if label:
             question.topic = label
-            
 
 
 def _normalize_topics(questions: list[GeneratedQuestion]) -> None:

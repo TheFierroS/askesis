@@ -731,3 +731,34 @@ def stats() -> list[dict]:
             """
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def known_topics(department: str, course: str, exam_type: str) -> list[str]:
+    """
+    Bu kombinasyonda kullanımda olan konu etiketleri, sık kullanılandan aza.
+
+    Üretim promptuna veriliyor: model her partide aynı kavrama yeni bir ad
+    uydurunca ("matrix inverse", "matrix inversion", "matrix invertibility")
+    konu dağılımı parçalanıyor ve sayılamaz hale geliyor. Mevcut sözlüğü
+    göstermek modeli var olanı yeniden kullanmaya yöneltiyor.
+
+    Aynı fikir yükleme yolunda zaten vardı (labeling.known_topics); üretim
+    yolunda yoktu.
+
+    Sık kullanılanlar başta: liste kırpıldığında elenecek olanlar, dersi en az
+    temsil eden etiketler olsun.
+    """
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT topic, COUNT(*) AS n
+            FROM questions
+            WHERE department = ? AND course = ? AND exam_type = ?
+              AND topic != ''
+            GROUP BY topic
+            ORDER BY n DESC
+            """,
+            (department, course, exam_type),
+        ).fetchall()
+
+    return [row["topic"] for row in rows]
