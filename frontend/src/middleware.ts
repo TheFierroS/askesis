@@ -62,7 +62,7 @@ export default clerkMiddleware(async (auth, request) => {
 export const config = {
     matcher: [
         // Next.js iç dosyaları ve statik dosyalar hariç her şey
-        "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+        "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|txt|xml)).*)",
         // Clerk'in kendi proxy yolu
         "/__clerk/:path*",
         // API rotaları

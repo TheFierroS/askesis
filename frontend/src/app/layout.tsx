@@ -40,11 +40,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  // Marka adı tek yerden geliyor: lib/brand.ts
+  // Göreli URL'lerin neye göre çözüleceği. Bu olmadan openGraph
+  // görselleri ve canonical adres çalışmıyor.
+  metadataBase: new URL("https://askesisapp.net"),
   title: `${BRAND.name} — ${BRAND.tagline}`,
   description:
     "Turn real past exam papers from your department into fresh practice " +
     "questions, matched to your course and exam type.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description:
+      "Bölümünün çıkmış sınav sorularından, dersine ve sınav türüne göre " +
+      "yeni pratik soruları.",
+    url: "https://askesisapp.net",
+    siteName: BRAND.name,
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
