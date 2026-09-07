@@ -221,6 +221,7 @@ def generate_reviewed(
     rejections.extend(dangling)
 
     _backfill_topics(approved)
+    _normalize_topics(approved)
 
     logger.info(
         "%s/%s: %d üretildi, %d onaylandı",
@@ -292,3 +293,21 @@ def _backfill_topics(questions: list[GeneratedQuestion]) -> None:
     for question, label in zip(missing, labels, strict=False):
         if label:
             question.topic = label
+            
+
+
+def _normalize_topics(questions: list[GeneratedQuestion]) -> None:
+    """
+    Üretilen soruların konu etiketlerini tek biçime indirger.
+
+    Yükleme yolunda (labeling.py) bu zaten yapılıyordu ama üretim yolunda
+    yapılmıyordu: modelin yazdığı etiket olduğu gibi kaydediliyordu. Sonuç,
+    aynı kavramın veritabanında dört ayrı satır olarak durmasıydı —
+    "Matrix Inverse", "Matrix inverse", "Matrix Inversion", "Matrix inversion".
+    Konu dağılımı bu haliyle sayılamıyordu.
+    """
+    from app.services.labeling import normalize_topic  # döngüsel import olmasın
+
+    for question in questions:
+        if question.topic:
+            question.topic = normalize_topic(question.topic)

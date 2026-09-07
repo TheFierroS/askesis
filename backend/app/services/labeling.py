@@ -86,7 +86,7 @@ def label_questions(
 
     for label in result.labels:
         if 0 <= label.index < len(labels):
-            labels[label.index] = _normalize(label.topic)
+            labels[label.index] = normalize_topic(label.topic)
 
     missing = sum(1 for label in labels if not label)
     if missing:
@@ -100,7 +100,7 @@ def label_questions(
 _NOT_PLURAL_ENDINGS = ("is", "ss", "us", "as", "os")
 
 
-def _normalize(topic: str) -> str:
+def normalize_topic(topic: str) -> str:
     """
     Etiketleri tek biçime indirger.
 
