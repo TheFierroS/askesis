@@ -98,6 +98,20 @@ def label_questions(
 # Sonu "s" ile biten ama çoğul OLMAYAN sözcük sonları.
 # Bunları atlamazsak "basis" → "basi", "nucleus" → "nucleu" oluyor.
 _NOT_PLURAL_ENDINGS = ("is", "ss", "us", "as", "os")
+# Düzensiz çoğullar: sondaki "s"yi atmak bunları bozuyor.
+# "matrices" → "matrice" gibi var olmayan kelimeler çıkıyor ve aynı kavram
+# yine iki ayrı satır oluyor. Matematik terimlerinde bu çoğullar sık.
+_IRREGULAR_PLURALS = {
+    "matrices": "matrix",
+    "indices": "index",
+    "vertices": "vertex",
+    "bases": "basis",
+    "axes": "axis",
+    "series": "series",
+    "formulas": "formula",
+    "maxima": "maximum",
+    "minima": "minimum",
+}
 
 
 def normalize_topic(topic: str) -> str:
@@ -117,7 +131,10 @@ def normalize_topic(topic: str) -> str:
 
     words = cleaned.split()
     last = words[-1]
-    if (
+
+    if last in _IRREGULAR_PLURALS:
+        words[-1] = _IRREGULAR_PLURALS[last]
+    elif (
         last.endswith("s")
         and len(last) > 4
         and not last.endswith(_NOT_PLURAL_ENDINGS)
