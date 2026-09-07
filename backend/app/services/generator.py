@@ -199,8 +199,18 @@ def generate_reviewed(
     try:
         verdicts = review_questions(questions)
     except AllProvidersFailed as exc:
-        logger.warning("Hakem çalışmadı, sorular denetimsiz geçiyor: %s", exc)
-        return questions, []
+        # Hakem çalışmadığında soruları havuza ALMIYORUZ.
+        #
+        # Eskiden denetimsiz geçiyorlardı: havuz boşken "hiç soru olmamasından
+        # iyi" mantıklıydı. Havuz dolu olduğunda takas tersine dönüyor — bir
+        # turu atlamanın maliyeti sıfır, denetimsiz sorunun maliyeti ise
+        # kullanıcıya hatalı soru göstermek. Üstelik siteye "her soru bağımsız
+        # bir modelce denetlenir" diye söz veriyoruz.
+        #
+        # Worker bunu boş tur sayıp geri çekiliyor, sağlayıcılar toparlayınca
+        # kendiliğinden devam ediyor.
+        logger.warning("Hakem çalışmadı, bu tur atlanıyor: %s", exc)
+        return [], [f"hakem çalışmadı, {len(questions)} soru havuza alınmadı"]
 
     approved: list[GeneratedQuestion] = []
     rejections: list[str] = []
