@@ -118,6 +118,21 @@ export default function Home() {
     const timer = setTimeout(() => setStage("landing"), 3500);
     return () => clearTimeout(timer);
   }, []);
+  /**
+ * Intro sırasında sayfa kaydırmayı kilitler.
+ *
+ * Landing içeriği artık intro sırasında da DOM'da duruyor (arama motoru
+ * boş bir sayfa görmesin diye). Kaplama onu örtüyor ama sayfa yine de
+ * kaydırılabiliyordu: kullanıcı intro biterken ortada bir yerde uyanıyordu.
+ */
+  useEffect(() => {
+    if (stage !== "intro") return;
+
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [stage]);
 
   const [prevStage, setPrevStage] = useState(stage);
   if (stage !== prevStage) {
@@ -223,27 +238,41 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {stage === "intro" && (
-        <StrokeText
-          text="Welcome.."
-          // Kontur ve dolgu her zaman aynı renk: önce çizgi çiziliyor,
-          // sonra aynı renk içini dolduruyor.
-          strokeColor={c.accent}
-          fillColor={c.accent}
-          fontFamily={FONT_FAMILY}
-          strokeWidth={1.4}
-          drawDuration={1.6}
-          fillDelay={0.2}
-          stagger={0.05}
-          trigger="mount"
-          fillMode="wipe"
-          fontSize={128}
-          fontWeight={800}
-          letterSpacing={-2}
-        />
-      )}
+      {/* Intro artık tam ekran bir kaplama.
+          Önce içeriğin YERİNE çiziliyordu; landing bloğu DOM'a hiç girmediği
+          için sayfanın ilk HTML'i boştu ve arama motoru "Welcome.." dışında
+          bir şey görmüyordu. Kaplama olarak koyunca görüntü aynı kalıyor ama
+          içerik baştan sayfada duruyor. */}
+      <AnimatePresence>
+        {stage === "intro" && (
+          <motion.div
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+            style={{ backgroundColor: "var(--bg)" }}
+          >
+            <StrokeText
+              text="Welcome.."
+              // Kontur ve dolgu her zaman aynı renk: önce çizgi çiziliyor,
+              // sonra aynı renk içini dolduruyor.
+              strokeColor={c.accent}
+              fillColor={c.accent}
+              fontFamily={FONT_FAMILY}
+              strokeWidth={1.4}
+              drawDuration={1.6}
+              fillDelay={0.2}
+              stagger={0.05}
+              trigger="mount"
+              fillMode="wipe"
+              fontSize={128}
+              fontWeight={800}
+              letterSpacing={-2}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {stage === "landing" && (
+      {(stage === "intro" || stage === "landing") && (
         <div className="relative w-full">
           <CursorGlow color={c.accent} />
           {/* ================= HERO ================= */}
@@ -301,7 +330,9 @@ export default function Home() {
             <div className="absolute inset-0 flex flex-col items-center justify-end gap-10 pb-16 px-4 text-center pointer-events-none">
               <motion.div
                 initial="hidden"
-                animate="visible"
+                // Intro bitmeden oynatma: içerik artık intro sırasında da
+                // DOM'da, animasyon kullanıcı görmeden bitiyordu.
+                animate={stage === "landing" ? "visible" : "hidden"}
                 variants={{
                   hidden: {},
                   visible: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
@@ -317,7 +348,7 @@ export default function Home() {
                   Built from real past exams
                 </motion.p>
 
-                <motion.h2
+                <motion.h1
                   variants={{ hidden: { opacity: 0, y: 14, filter: "blur(6px)" }, visible: { opacity: 1, y: 0, filter: "blur(0px)" } }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
                   className="text-[clamp(1.75rem,4.5vw,2.75rem)] leading-[1.15]"
@@ -329,7 +360,7 @@ export default function Home() {
                   }}
                 >
                   {BRAND.tagline}
-                </motion.h2>
+                </motion.h1>
 
                 <motion.p
                   variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
@@ -345,7 +376,7 @@ export default function Home() {
 
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
+                animate={stage === "landing" ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
                 transition={{ duration: 0.5, ease: "easeOut", delay: 0.55 }}
                 className="flex flex-col items-center gap-4 pointer-events-auto"
               >
@@ -410,7 +441,7 @@ export default function Home() {
 
           {/* ================= NASIL ÇALIŞIR ================= */}
           <section className="w-full max-w-5xl mx-auto px-6 pt-32 pb-24 flex flex-col items-center gap-24">
-            <motion.p
+            <motion.h2
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
@@ -419,7 +450,7 @@ export default function Home() {
               style={{ color: "var(--accent-2)", fontFamily: "var(--font-heading)" }}
             >
               How it works
-            </motion.p>
+            </motion.h2>
 
             <ScrollSteps
               color="var(--fg)"
@@ -486,7 +517,7 @@ export default function Home() {
             className="w-full py-24 px-6 flex flex-col items-center gap-16"
             style={{ backgroundColor: "var(--surface)" }}
           >
-            <motion.p
+            <motion.h2
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
@@ -495,7 +526,7 @@ export default function Home() {
               style={{ color: "var(--accent-3)", fontFamily: "var(--font-heading)" }}
             >
               What that means when you sit down to study
-            </motion.p>
+            </motion.h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-4xl">
               {[
@@ -524,47 +555,47 @@ export default function Home() {
                   i % 3
                 ];
                 return (
-                <motion.div
-                  key={f.title}
-                  initial={{ opacity: 0, x: i % 2 === 0 ? -16 : 16 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true, margin: "-60px" }}
-                  transition={{ duration: 0.5, delay: (i % 2) * 0.08, ease: "easeOut" }}
-                >
-                  <TiltCard
-                    className="flex items-start gap-4 rounded-2xl border border-l-4 px-5 py-5 h-full"
-                    style={{
-                      // color-mix: renk değişkenden geldiği için tema geçişinde
-                      // kartlar da diğer her şeyle aynı anda dönüyor.
-                      borderColor: `color-mix(in srgb, ${fcVar} 20%, transparent)`,
-                      borderLeftColor: fcVar,
-                      backgroundColor: `color-mix(in srgb, ${fcVar} 6%, transparent)`,
-                    }}
+                  <motion.div
+                    key={f.title}
+                    initial={{ opacity: 0, x: i % 2 === 0 ? -16 : 16 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true, margin: "-60px" }}
+                    transition={{ duration: 0.5, delay: (i % 2) * 0.08, ease: "easeOut" }}
                   >
-                    <span
-                      className="mt-1.5 h-2 w-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: fcVar }}
-                    />
-                    <div>
-                      <h4
-                        className="text-lg mb-1"
-                        style={{
-                          color: "var(--fg)",
-                          fontFamily: "var(--font-heading)",
-                          fontWeight: 400,
-                        }}
-                      >
-                        {f.title}
-                      </h4>
-                      <p
-                        className="text-sm leading-relaxed"
-                        style={{ color: "var(--fg-muted)", fontFamily: "var(--font-geist-sans)" }}
-                      >
-                        {f.desc}
-                      </p>
-                    </div>
-                  </TiltCard>
-                </motion.div>
+                    <TiltCard
+                      className="flex items-start gap-4 rounded-2xl border border-l-4 px-5 py-5 h-full"
+                      style={{
+                        // color-mix: renk değişkenden geldiği için tema geçişinde
+                        // kartlar da diğer her şeyle aynı anda dönüyor.
+                        borderColor: `color-mix(in srgb, ${fcVar} 20%, transparent)`,
+                        borderLeftColor: fcVar,
+                        backgroundColor: `color-mix(in srgb, ${fcVar} 6%, transparent)`,
+                      }}
+                    >
+                      <span
+                        className="mt-1.5 h-2 w-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: fcVar }}
+                      />
+                      <div>
+                        <h4
+                          className="text-lg mb-1"
+                          style={{
+                            color: "var(--fg)",
+                            fontFamily: "var(--font-heading)",
+                            fontWeight: 400,
+                          }}
+                        >
+                          {f.title}
+                        </h4>
+                        <p
+                          className="text-sm leading-relaxed"
+                          style={{ color: "var(--fg-muted)", fontFamily: "var(--font-geist-sans)" }}
+                        >
+                          {f.desc}
+                        </p>
+                      </div>
+                    </TiltCard>
+                  </motion.div>
                 );
               })}
             </div>
@@ -572,7 +603,7 @@ export default function Home() {
 
           {/* ================= ÖRNEK SORULAR ================= */}
           <section className="w-full max-w-4xl mx-auto px-6 py-24 flex flex-col items-center gap-8">
-            <motion.p
+            <motion.h2
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
@@ -581,7 +612,7 @@ export default function Home() {
               style={{ color: "var(--accent)", fontFamily: "var(--font-heading)" }}
             >
               Actual generated questions
-            </motion.p>
+            </motion.h2>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -596,7 +627,7 @@ export default function Home() {
 
           {/* ================= FİYATLANDIRMA ================= */}
           <section className="w-full max-w-5xl mx-auto px-6 py-24 flex flex-col items-center gap-4">
-            <motion.p
+            <motion.h2
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
@@ -605,7 +636,7 @@ export default function Home() {
               style={{ color: "var(--accent-3)", fontFamily: "var(--font-heading)" }}
             >
               Pricing
-            </motion.p>
+            </motion.h2>
 
             <motion.p
               initial={{ opacity: 0, y: 10 }}
@@ -639,7 +670,7 @@ export default function Home() {
             className="w-full py-24 px-6 flex flex-col items-center gap-10"
             style={{ backgroundColor: "var(--surface)" }}
           >
-            <motion.p
+            <motion.h2
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
@@ -648,14 +679,14 @@ export default function Home() {
               style={{ color: "var(--accent-2)", fontFamily: "var(--font-heading)" }}
             >
               Questions people ask
-            </motion.p>
+            </motion.h2>
 
             <Faq items={FAQ_ITEMS} accentFor={(index) => accentAt(c, index)} />
           </section>
 
           {/* ================= KAPANIŞ CTA ================= */}
           <section className="w-full py-28 px-6 flex flex-col items-center gap-6 text-center">
-            <motion.h3
+            <motion.h2
               initial={{ opacity: 0, y: 14 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
@@ -668,7 +699,7 @@ export default function Home() {
               }}
             >
               See what your next exam might look like
-            </motion.h3>
+            </motion.h2>
             <motion.button
               initial={{ opacity: 0, y: 14 }}
               whileInView={{ opacity: 1, y: 0 }}
