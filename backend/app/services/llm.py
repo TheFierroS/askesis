@@ -269,7 +269,48 @@ _CONTROL_TO_LATEX = {
     "\x08": "\\b",  # \beta, \bmatrix
     "\x0b": "\\v",  # \vec, \varphi
     "\x07": "\\a",  # \alpha, \angle
+    "\x0d": "\\r",  # \right, \rho — satır sonu \n ile geliyor, CR'ye ihtiyaç yok
 }
+
+# Ters bölüden sonra gelince JSON'un YUTTUĞU ama LaTeX'te komut olan harfler.
+#
+# `\r`, `\b`, `\f`, `\v` JSON'da geçerli kaçışlar ve metnimizde meşru bir
+# kullanımları yok — arkasından harf geliyorsa kesinlikle LaTeX komutudur
+# (\right, \begin, \frac, \vec).
+_ALWAYS_LATEX = "rbfv"
+
+# `\n` ve `\t` ise gerçekten satır sonu ve sekme olabiliyor, o yüzden burada
+# blanket kural uygulanamıyor. Yalnızca bilinen komut adları korunuyor.
+# Sıralama uzundan kısaya: `\ne` kısa hali `\neq`'i yutmasın.
+_AMBIGUOUS_LATEX = sorted(
+    (
+        # n
+        "nrightarrow", "nsubseteq", "nparallel", "nabla", "notin", "ncong",
+        "nleq", "ngeq", "nmid", "neq", "not", "nu", "ne",
+        # t
+        "therefore", "triangle", "textbf", "textit", "tfrac", "tanh", "theta",
+        "times", "tilde", "text", "tan", "tau", "top", "to",
+    ),
+    key=len,
+    reverse=True,
+)
+
+_LATEX_ESCAPE_RE = re.compile(
+    # Zaten çift olan ters bölüye dokunma.
+    r"(?<!\\)\\(?:"
+    rf"[{_ALWAYS_LATEX}][A-Za-z]"
+    r"|(?:" + "|".join(_AMBIGUOUS_LATEX) + r")"
+    r")"
+)
+
+# Satır ayracının kaybolduğu ortamlar. Bunların içinde boşluktan önce gelen
+# TEK ters bölü, LaTeX'te satır ayracı olmalı — model `\\` yazmış, JSON tek
+# `\`'a indirmiş demektir.
+_MATRIX_ENV_RE = re.compile(
+    r"\\begin\{(matrix|bmatrix|pmatrix|vmatrix|Vmatrix|smallmatrix"
+    r"|array|cases|aligned|split|gathered)\}.*?\\end\{\1\}",
+    re.DOTALL,
+)
 
 
 def _repair_json_escapes(raw: str) -> str:
@@ -305,6 +346,39 @@ def _repair_json_escapes(raw: str) -> str:
     return "".join(out)
 
 
+def _protect_latex_escapes(raw: str) -> str:
+    r"""
+    JSON'un sessizce yiyeceği LaTeX komutlarını ayrıştırmadan ÖNCE korur.
+
+    Buradaki kritik nokta şu: `_repair_json_escapes` yalnızca GEÇERSİZ
+    kaçışları düzeltiyor ve yalnızca ayrıştırma çöktüğünde çağrılıyor. Ama
+    `\right` içindeki `\r` JSON'da GEÇERLİ bir kaçış — json.loads hata
+    vermeden ayrıştırıyor ve `\right` sessizce "CR + ight" oluyor. Hata
+    fırlamadığı için onarım hiç devreye girmiyor; ekranda `ight\}` beliriyor.
+
+    Bu yüzden koruma ayrıştırmadan önce ve HER ZAMAN çalışıyor.
+    """
+    return _LATEX_ESCAPE_RE.sub(lambda m: "\\" + m.group(0), raw)
+
+
+def _restore_row_separators(text: str) -> str:
+    r"""
+    Matris ortamlarında kaybolmuş satır ayraçlarını geri koyar.
+
+    Model LaTeX'te `\\` yazmak için JSON'a `\\\\` yazmalıydı; `\\` yazınca
+    ayrıştırma tek `\` bırakıyor ve `2 & 1 \ 1 & 1` satırları tek satıra
+    çöküyor.
+
+    Yalnızca matris/array/cases içinde uygulanıyor: dışarıda `\ ` LaTeX'te
+    zorlanmış boşluk demek ve meşru olabiliyor.
+    """
+
+    def fix(match: re.Match[str]) -> str:
+        return re.sub(r"(?<!\\)\\(?=\s)", r"\\\\", match.group(0))
+
+    return _MATRIX_ENV_RE.sub(fix, text)
+
+
 def _restore_latex_controls(text: str) -> str:
     """Ayrıştırma sırasında kontrol karakterine dönüşmüş LaTeX'i geri alır."""
     for control, latex in _CONTROL_TO_LATEX.items():
@@ -312,14 +386,29 @@ def _restore_latex_controls(text: str) -> str:
     return text
 
 
-def _clean_parsed(value):
-    """Ayrıştırılmış yapıdaki bütün metinleri onarır."""
+# Onarımdan MUAF alanlar.
+#
+# figure.code Python kaynağı: oradaki sekme gerçek girinti, ters bölü + satır
+# sonu gerçek satır devamı olabiliyor. LaTeX varsayımıyla oynamak çalışan kodu
+# bozar.
+_RAW_FIELDS = {"code"}
+
+
+def _clean_parsed(value, *, field: str | None = None):
+    """
+    Ayrıştırılmış yapıdaki metinleri onarır.
+
+    Alan adına bakıyor: şekil kodu olduğu gibi bırakılıyor, geri kalan her
+    metin LaTeX varsayımıyla onarılıyor.
+    """
     if isinstance(value, str):
-        return _restore_latex_controls(value)
+        if field in _RAW_FIELDS:
+            return value
+        return _restore_row_separators(_restore_latex_controls(value))
     if isinstance(value, list):
-        return [_clean_parsed(item) for item in value]
+        return [_clean_parsed(item, field=field) for item in value]
     if isinstance(value, dict):
-        return {key: _clean_parsed(item) for key, item in value.items()}
+        return {key: _clean_parsed(item, field=key) for key, item in value.items()}
     return value
 
 
@@ -361,14 +450,22 @@ def complete_json(
         try:
             raw = _clean(_post(attempt, payload, reasoning_effort))
 
+            # Koruma ayrıştırmadan ÖNCE ve her zaman: \right gibi komutlar
+            # geçerli JSON kaçışı oldukları için hata fırlatmadan yok oluyor,
+            # yani "önce dene, çökerse onar" yaklaşımı onları hiç görmüyor.
+            prepared = _repair_json_escapes(_protect_latex_escapes(raw))
+
             try:
-                data = json.loads(raw)
+                data = json.loads(prepared)
             except json.JSONDecodeError:
-                # Büyük olasılıkla LaTeX'ten gelen tanımsız kaçış: onarıp
-                # bir kez daha dene. Başarısız olursa hata yukarı gidiyor ve
-                # zincirde bir sonraki sağlayıcıya geçiliyor.
-                data = json.loads(_repair_json_escapes(raw))
-                logger.info("%s: JSON kaçışları onarıldı", attempt.provider)
+                # Koruma beklenmedik bir şeyi bozmuş olabilir: ham hâliyle bir
+                # kez daha dene. Bu da olmazsa hata yukarı gidiyor ve zincirde
+                # bir sonraki sağlayıcıya geçiliyor.
+                data = json.loads(raw)
+                logger.info(
+                    "%s: koruma sonrası ayrıştırılamadı, ham yanıt kullanıldı",
+                    attempt.provider,
+                )
 
             return schema.model_validate(_clean_parsed(data))
         except ValidationError as exc:
