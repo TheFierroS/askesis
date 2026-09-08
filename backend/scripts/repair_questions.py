@@ -40,9 +40,12 @@ from app.services.pool import _connect
 # Süslü parantez de dışlanıyor: `\begin{bmatrix}` içindeki "bmatrix" ters
 # bölüsüz görünüyor ama doğru — orası ortam adı, komut değil. Matris ortam
 # adlarını listeden tamamen çıkardım, neredeyse her zaman parantez içindeler.
+# Listede YALNIZCA İngilizce kelime olmayan komutlar var. "exists" ve "times"
+# çıkarıldı: "If it exists, find" ve "three times" gibi cümleler her soruda
+# geçiyor ve hepsi bozukmuş gibi raporlanıyordu.
 _MISSING_BACKSLASH = re.compile(
-    r"(?<![\\A-Za-z{])(mathbb|mathbf|mathrm|frac|sqrt|times|cdot"
-    r"|alpha|beta|theta|lambda|infty|forall|exists)\b"
+    r"(?<![\\A-Za-z{])(mathbb|mathbf|mathrm|mathcal|frac|sqrt|cdot"
+    r"|alpha|beta|gamma|theta|lambda|infty|forall|subseteq|geq|leq|neq)\b"
 )
 
 # Matris ortamında boşluktan önce gelen TEK ters bölü.
