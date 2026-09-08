@@ -62,29 +62,59 @@ export interface PublicCourseDetail extends PublicCourse {
  */
 const REVALIDATE_SECONDS = 3600;
 
+/**
+ * Tek bir istek için üst süre sınırı (ms).
+ *
+ * Node'un fetch'i varsayılan olarak 10 saniye bekliyor ve bu Vercel'in derleme
+ * adımını kilitliyor. Sekiz saniye, yavaş bir yanıtı beklemeye yeter ama
+ * ulaşılamayan bir sunucuda derlemeyi oyalamaz.
+ */
+const TIMEOUT_MS = 8000;
+
+/**
+ * fetch + JSON, ağ hataları yutularak.
+ *
+ * Kritik nokta: `response.ok` kontrolü YETMİYOR. O yalnızca sunucunun cevap
+ * verdiği durumları kapsıyor (404, 500 gibi). Bağlantı hiç kurulamazsa fetch
+ * bir Response döndürmüyor, exception fırlatıyor — DNS çözülemez, bağlantı
+ * zaman aşımına uğrar, sertifika reddedilir. O exception yakalanmazsa
+ * derleme sırasında "Collecting page data" adımında dağıtımın tamamı düşüyor.
+ *
+ * Sunucunun anlık durumu yayına engel olmamalı: erişilemiyorsa sayfa yedek
+ * değerle oluşuyor, bir saat sonraki yeniden doğrulamada kendiliğinden
+ * düzeliyor.
+ */
+async function getJson<T>(path: string, fallback: T): Promise<T> {
+    try {
+        const response = await fetch(`${BASE_URL}${path}`, {
+            next: { revalidate: REVALIDATE_SECONDS },
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+
+        // 404 burada hata değil: bilinmeyen bir slug istenmiş olabilir.
+        // Çağıran taraf yedek değeri notFound()'a çeviriyor.
+        if (!response.ok) return fallback;
+
+        return (await response.json()) as T;
+    } catch (error) {
+        // Derleme logunda görünsün: sayfa boş çıktığında sebebini aramak
+        // yerine doğrudan burada okunuyor.
+        console.warn(
+            `[publicApi] ${path} alınamadı, yedek değerle devam ediliyor:`,
+            error instanceof Error ? error.message : error,
+        );
+        return fallback;
+    }
+}
+
 export async function fetchPublicCourses(): Promise<PublicCourse[]> {
-    const response = await fetch(`${BASE_URL}/public/courses`, {
-        next: { revalidate: REVALIDATE_SECONDS },
-    });
-
-    // Backend kapalıysa sayfa çökmemeli: boş liste dönüp sayfa yine oluşuyor.
-    if (!response.ok) return [];
-
-    return response.json();
+    return getJson<PublicCourse[]>("/public/courses", []);
 }
 
 export async function fetchPublicCourse(
     slug: string,
 ): Promise<PublicCourseDetail | null> {
-    const response = await fetch(`${BASE_URL}/public/courses/${slug}`, {
-        next: { revalidate: REVALIDATE_SECONDS },
-    });
-
-    // 404 burada hata değil: bilinmeyen bir slug istenmiş olabilir. Çağıran
-    // taraf bunu notFound()'a çeviriyor.
-    if (!response.ok) return null;
-
-    return response.json();
+    return getJson<PublicCourseDetail | null>(`/public/courses/${slug}`, null);
 }
 
 /**
