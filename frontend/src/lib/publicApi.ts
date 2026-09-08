@@ -72,45 +72,92 @@ const REVALIDATE_SECONDS = 3600;
 const TIMEOUT_MS = 8000;
 
 /**
- * fetch + JSON, ağ hataları yutularak.
+ * Backend'e ulaşılamadığında fırlatılıyor.
  *
- * Kritik nokta: `response.ok` kontrolü YETMİYOR. O yalnızca sunucunun cevap
- * verdiği durumları kapsıyor (404, 500 gibi). Bağlantı hiç kurulamazsa fetch
- * bir Response döndürmüyor, exception fırlatıyor — DNS çözülemez, bağlantı
- * zaman aşımına uğrar, sertifika reddedilir. O exception yakalanmazsa
- * derleme sırasında "Collecting page data" adımında dağıtımın tamamı düşüyor.
- *
- * Sunucunun anlık durumu yayına engel olmamalı: erişilemiyorsa sayfa yedek
- * değerle oluşuyor, bir saat sonraki yeniden doğrulamada kendiliğinden
- * düzeliyor.
+ * "Sunucu 404 dedi" ile "sunucuya hiç ulaşamadım" ayrı şeyler ve bu ayrım
+ * kritik: ikisini aynı kefeye koyarsak, ağ bir an tıkandığında var olan bir
+ * dersin sayfası 404 olarak STATİK ÜRETİLİYOR ve API düzeldikten sonra bile
+ * 404 kalmaya devam ediyor.
  */
-async function getJson<T>(path: string, fallback: T): Promise<T> {
-    try {
-        const response = await fetch(`${BASE_URL}${path}`, {
-            next: { revalidate: REVALIDATE_SECONDS },
-            signal: AbortSignal.timeout(TIMEOUT_MS),
-        });
-
-        // 404 burada hata değil: bilinmeyen bir slug istenmiş olabilir.
-        // Çağıran taraf yedek değeri notFound()'a çeviriyor.
-        if (!response.ok) return fallback;
-
-        return (await response.json()) as T;
-    } catch (error) {
-        // Derleme logunda görünsün: sayfa boş çıktığında sebebini aramak
-        // yerine doğrudan burada okunuyor.
-        console.warn(
-            `[publicApi] ${path} alınamadı, yedek değerle devam ediliyor:`,
-            error instanceof Error ? error.message : error,
-        );
-        return fallback;
+export class UpstreamUnavailable extends Error {
+    constructor(path: string, cause: unknown) {
+        super(`[publicApi] ${path} alınamadı: ${describe(cause)}`);
+        this.name = "UpstreamUnavailable";
     }
 }
 
-export async function fetchPublicCourses(): Promise<PublicCourse[]> {
-    return getJson<PublicCourse[]>("/public/courses", []);
+function describe(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * fetch + JSON.
+ *
+ * `response.ok` kontrolü tek başına yetmiyor: o yalnızca sunucunun cevap
+ * verdiği durumları kapsıyor. Bağlantı hiç kurulamazsa fetch bir Response
+ * döndürmüyor, exception fırlatıyor — DNS çözülemez, zaman aşımı, reddedilen
+ * sertifika. Yakalanmazsa derleme "Collecting page data" adımında düşüyor.
+ *
+ * Bu yüzden üç durumu ayırıyoruz:
+ *   - 200        → veri
+ *   - 404        → notFoundValue (gerçekten yok)
+ *   - ağ / 5xx   → UpstreamUnavailable fırlat
+ *
+ * Sonuncusunu çağıran taraf duruma göre ele alıyor: liste sayfası boş
+ * listeyle devam edebilir, ders sayfası edemez.
+ */
+async function getJson<T>(path: string, notFoundValue: T): Promise<T> {
+    let response: Response;
+
+    try {
+        response = await fetch(`${BASE_URL}${path}`, {
+            next: { revalidate: REVALIDATE_SECONDS },
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+    } catch (error) {
+        throw new UpstreamUnavailable(path, error);
+    }
+
+    // Yalnızca 404 "yok" demek. 500 veya 502 sunucunun geçici derdi ve o anki
+    // hâlini kalıcı bir 404 olarak dondurmamalıyız.
+    if (response.status === 404) return notFoundValue;
+    if (!response.ok) {
+        throw new UpstreamUnavailable(path, `HTTP ${response.status}`);
+    }
+
+    try {
+        return (await response.json()) as T;
+    } catch (error) {
+        throw new UpstreamUnavailable(path, error);
+    }
+}
+
+/**
+ * Ders listesi. Ulaşılamazsa BOŞ liste.
+ *
+ * Burada yutmak güvenli: eksik bir sitemap ya da "henüz ders yok" diyen bir
+ * dizin sayfası, düşmüş bir dağıtımdan iyi. Bir saat sonra kendiliğinden
+ * doluyor.
+ */
+export async function fetchPublicCourses(): Promise<PublicCourse[]> {
+    try {
+        return await getJson<PublicCourse[]>("/public/courses", []);
+    } catch (error) {
+        console.warn(describe(error), "— boş listeyle devam ediliyor");
+        return [];
+    }
+}
+
+/**
+ * Tek dersin detayı. Ulaşılamazsa FIRLATIYOR, null dönmüyor.
+ *
+ * Bilerek: null dönseydi çağıran taraf notFound() çağırır ve Next.js o 404'ü
+ * statik olarak pişirirdi. Var olan bir dersin sayfası, API bir an takıldı
+ * diye kalıcı 404 olur. Fırlatmak ise sayfayı üretilmemiş bırakıyor; sonraki
+ * istekte yeniden deneniyor.
+ *
+ * Sunucu 404 derse null dönüyor — o gerçekten olmayan bir ders.
+ */
 export async function fetchPublicCourse(
     slug: string,
 ): Promise<PublicCourseDetail | null> {
