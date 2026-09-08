@@ -14,8 +14,6 @@ import ThemeSwitch from "../components/ThemeSwitch";
 import Logo from "../components/Logo";
 import Faq from "../components/Faq";
 import SampleQuestions from "../components/SampleQuestions";
-import PricingCards from "../components/PricingCards";
-import { FREE_CREDITS } from "../lib/pricing";
 import {
   SceneFrequency,
   SceneReview,
@@ -90,7 +88,7 @@ const FAQ_ITEMS = [
   {
     question: "What does it cost?",
     answer:
-      `Every account starts with ${FREE_CREDITS} free questions. After that you buy credits in packages, and a credit is one question — a three-question set costs three, not a whole exam. Credits do not expire, and solutions and PDF downloads are included at no extra cost.`,
+      "Nothing. Every account gets a batch of questions each day, free, and the counter refills at midnight. Solutions and PDF downloads are included. If you run out and genuinely need more, write to us and we will top up your account.",
   },
 ];
 
@@ -685,46 +683,6 @@ export default function Home() {
                 </div>
               </Link>
             </motion.div>
-          </section>
-
-          {/* ================= FİYATLANDIRMA ================= */}
-          <section className="w-full max-w-5xl mx-auto px-6 py-24 flex flex-col items-center gap-4">
-            <motion.h2
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.5 }}
-              className="text-2xl sm:text-3xl"
-              style={{ color: "var(--accent-3)", fontFamily: "var(--font-heading)" }}
-            >
-              Pricing
-            </motion.h2>
-
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.5, delay: 0.08 }}
-              className="text-sm text-center max-w-lg mb-6"
-              style={{
-                color: "var(--fg-muted)",
-                fontFamily: "var(--font-geist-sans)",
-              }}
-            >
-              Every new account starts with {FREE_CREDITS} questions, free. You
-              only pay once you have seen what the questions look like — and you
-              pay per question, not per exam, so a three-question set costs
-              three.
-            </motion.p>
-
-            <PricingCards accentFor={(i) => accentAt(c, i)} />
-
-            <p
-              className="text-xs text-center mt-4"
-              style={{ color: "var(--fg-faint)", fontFamily: FONT_FAMILY }}
-            >
-              Credits never expire. Solutions and PDF exports are included.
-            </p>
           </section>
 
           {/* ================= SSS ================= */}

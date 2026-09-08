@@ -19,6 +19,7 @@ import {
     ApiError,
     createApi,
     type CatalogEntry,
+    type CreditBalance,
     type Question,
 } from "../../lib/api";
 import {
@@ -136,7 +137,15 @@ function DashboardPageContent() {
      * hatası veriyor.
      */
     const [credits, setCredits] = useState<number | null>(null);
-    // Hak bitince açılan satın alma penceresi.
+    /**
+     * Hakkın dökümü: günlük kotadan ne kaldı, kalıcı hak ne kadar.
+     *
+     * Üst bardaki rozet tek sayı gösteriyor ama pencere "kotan bitti, yarın
+     * yenilenecek" ile "verilen hakkın da bitti" arasındaki farkı ancak
+     * dökümle söyleyebiliyor.
+     */
+    const [allowance, setAllowance] = useState<CreditBalance | null>(null);
+    // Hak bitince açılan kota penceresi.
     const [paywallOpen, setPaywallOpen] = useState(false);
 
     // ---- katalog (hangi ders için sınav yüklenmiş) ----
@@ -148,7 +157,9 @@ function DashboardPageContent() {
         api
             .credits()
             .then((result) => {
-                if (!cancelled) setCredits(result.balance);
+                if (cancelled) return;
+                setCredits(result.balance);
+                setAllowance(result);
             })
             .catch(() => {
                 // Hak okunamadıysa sayfayı kilitlemiyoruz; üretim denemesinde
@@ -282,6 +293,12 @@ function DashboardPageContent() {
             setRequested(result.requested);
             setExamId(result.exam_id);
             setCredits(result.credits_left);
+            // Sınav yanıtı yalnızca toplamı taşıyor. Dökümü ayrıca çekiyoruz
+            // ki pencere açıldığında "kotadan mı verilen haktan mı bitti"
+            // doğru görünsün. Sessizce başarısız olabilir: rozet zaten güncel.
+            api.credits()
+                .then(setAllowance)
+                .catch(() => {});
             setHistoryKey((k) => k + 1);
             setSolutions({});
             setCurrentIndex(0);
@@ -295,6 +312,12 @@ function DashboardPageContent() {
             if (err instanceof ApiError && err.status === 402) {
                 setCredits(0);
                 setPaywallOpen(true);
+                api.credits()
+                    .then((result) => {
+                        setCredits(result.balance);
+                        setAllowance(result);
+                    })
+                    .catch(() => {});
             } else if (err instanceof ApiError && err.status === 404) {
                 notify(
                     `No past exams have been uploaded for ${activeCourse} · ${activeExamType} yet. Pick another course, or check back later.`,
@@ -577,11 +600,17 @@ function DashboardPageContent() {
                     işin parçası, ekranın iki ucuna dağılmaları kafa karıştırıyordu. */}
                 <div className="flex items-center gap-2 sm:gap-3">
                     {/* Kalan hak: kullanıcı ne kadar kaldığını her an görsün,
-                        sıfırlandığında sürpriz olmasın. */}
+                        sıfırlandığında sürpriz olmasın.
+
+                        Mobilde de görünüyor. Eskiden `hidden sm:flex` idi ve
+                        telefonda hakkının bittiğini ancak üretmeye çalışınca
+                        öğreniyordun — kotanın anlamı tam da her an görünür
+                        olması. Dar ekranda yalnızca "left" kelimesi düşüyor,
+                        sayı kalıyor. */}
                     {credits !== null && (
                         <button
                             onClick={() => setPaywallOpen(true)}
-                            className="hidden sm:flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors hover:border-[var(--border-hover)]"
+                            className="flex items-center gap-1 sm:gap-1.5 rounded-full border px-2.5 sm:px-3 py-1.5 text-xs transition-colors hover:border-[var(--border-hover)]"
                             style={{
                                 borderColor:
                                     credits > 5
@@ -590,7 +619,7 @@ function DashboardPageContent() {
                                 color: credits > 5 ? FG_MUTED : "var(--danger)",
                                 fontFamily: FONT_FAMILY,
                             }}
-                            title="Questions you can still generate — click to buy more"
+                            title="Questions you can still generate today"
                         >
                             <span
                                 style={{
@@ -600,7 +629,7 @@ function DashboardPageContent() {
                             >
                                 {credits}
                             </span>
-                            left
+                            <span className="hidden sm:inline">left</span>
                         </button>
                     )}
                     <ThemeSwitch />
@@ -629,6 +658,9 @@ function DashboardPageContent() {
                 open={paywallOpen}
                 onClose={() => setPaywallOpen(false)}
                 accentFor={(i) => accentAt(c, i)}
+                dailyLimit={allowance?.daily_limit ?? 0}
+                dailyLeft={allowance?.daily_left ?? 0}
+                bonus={allowance?.bonus ?? 0}
             />
 
             <AnimatePresence mode="wait">

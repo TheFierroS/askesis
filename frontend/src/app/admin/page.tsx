@@ -64,6 +64,7 @@ function AdminPageContent() {
     // Hangi kullanıcıya kaç hak yükleneceği — satır bazında tutuluyor.
     const [grantAmounts, setGrantAmounts] = useState<Record<string, string>>({});
     const [granting, setGranting] = useState<string | null>(null);
+    const [resetting, setResetting] = useState<string | null>(null);
 
     // Arama ve filtreler.
     const [userQuery, setUserQuery] = useState("");
@@ -269,7 +270,16 @@ function AdminPageContent() {
             setAccounts((prev) =>
                 prev.map((account) =>
                     account.user_id === userId
-                        ? { ...account, balance: result.balance }
+                        ? {
+                              // Yalnızca balance'ı almak yetmiyor: satırın
+                              // altındaki döküm eski kalır ve hak verdikten
+                              // sonra panel yanlış görünür.
+                              ...account,
+                              balance: result.balance,
+                              bonus: result.bonus,
+                              daily_limit: result.daily_limit,
+                              daily_used: result.daily_used,
+                          }
                         : account,
                 ),
             );
@@ -278,6 +288,40 @@ function AdminPageContent() {
             notify(err instanceof ApiError ? err.message : "Could not grant credits.");
         } finally {
             setGranting(null);
+        }
+    };
+
+    /**
+     * Kullanıcının bugünkü kotasını geri verir.
+     *
+     * Grant'ten farkı kalıcılık: verilen hak kullanıcı bitirene kadar durur ve
+     * her gün kotanın üstüne biner. Reset yalnızca o günü telafi ediyor, gece
+     * yarısı zaten sıfırlanacağı için ertesi güne bir şey taşımıyor.
+     *
+     * Kullanım anı: "boşa harcadım" veya "gelen sorular bozuktu" denildiğinde.
+     * Bunun için kalıcı hak vermek, telafi ile hediyeyi karıştırmak olurdu.
+     */
+    const handleResetDay = async (userId: string) => {
+        setResetting(userId);
+        try {
+            const result = await api.adminResetDaily(userId);
+            setAccounts((prev) =>
+                prev.map((account) =>
+                    account.user_id === userId
+                        ? {
+                              ...account,
+                              balance: result.balance,
+                              bonus: result.bonus,
+                              daily_limit: result.daily_limit,
+                              daily_used: result.daily_used,
+                          }
+                        : account,
+                ),
+            );
+        } catch (err: unknown) {
+            notify(err instanceof ApiError ? err.message : "Could not reset the day.");
+        } finally {
+            setResetting(null);
         }
     };
 
@@ -618,7 +662,7 @@ function AdminPageContent() {
 
                     {accounts.length === 0 ? (
                         <p className="text-sm" style={{ color: FG_FAINT }}>
-                            No accounts yet. A user gets credits the first time they
+                            No accounts yet. A user appears here the first time they
                             generate an exam.
                         </p>
                     ) : (
@@ -661,8 +705,15 @@ function AdminPageContent() {
                                             className="truncate text-xs"
                                             style={{ color: FG_FAINT }}
                                         >
-                                            {account.used_total} questions used ·
-                                            joined {formatDate(account.created_at)}
+                                            {account.used_total} questions used ·{" "}
+                                            {account.daily_limit - account.daily_used}/
+                                            {account.daily_limit} daily left
+                                            {/* Kalıcı hakkı olmayanda hiç
+                                                yazmıyoruz: çoğu satırda 0
+                                                olacak ve "0 granted" gürültü. */}
+                                            {account.bonus > 0 &&
+                                                ` · ${account.bonus} granted`}{" "}
+                                            · joined {formatDate(account.created_at)}
                                         </p>
                                     </div>
 
@@ -670,12 +721,17 @@ function AdminPageContent() {
                                         Mobilde kendi satırında, masaüstünde
                                         kullanıcı bilgisinin sağında. */}
                                     <div className="flex items-center gap-2 flex-shrink-0">
+                                        {/* Kenarlık, kalıcı hakkı olan
+                                            kullanıcıyı listede tek bakışta
+                                            ayırt etmek için vurgulu. */}
                                         <span
                                             className="rounded-full border px-3 py-1 text-xs whitespace-nowrap"
                                             style={{
                                                 borderColor:
                                                     account.balance > 0
-                                                        ? BORDER
+                                                        ? account.bonus > 0
+                                                            ? "var(--accent)"
+                                                            : BORDER
                                                         : "var(--danger)",
                                                 color:
                                                     account.balance > 0
@@ -684,6 +740,12 @@ function AdminPageContent() {
                                                 fontFamily: FONT,
                                                 fontWeight: 700,
                                             }}
+                                            title={
+                                                `${account.daily_limit - account.daily_used} from today's quota` +
+                                                (account.bonus > 0
+                                                    ? ` + ${account.bonus} granted`
+                                                    : "")
+                                            }
                                         >
                                             {account.balance} left
                                         </span>
@@ -715,6 +777,30 @@ function AdminPageContent() {
                                                 ? "…"
                                                 : "Grant"}
                                         </button>
+
+                                        {/* Kotasına hiç dokunmamış kullanıcıda
+                                            sıfırlanacak bir şey yok, düğmeyi
+                                            göstermiyoruz. */}
+                                        {account.daily_used > 0 && (
+                                            <button
+                                                onClick={() =>
+                                                    handleResetDay(account.user_id)
+                                                }
+                                                disabled={
+                                                    resetting === account.user_id
+                                                }
+                                                title="Give back today's quota. Does not touch granted credits."
+                                                className="flex-shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors hover:border-[var(--border-hover)] disabled:opacity-40"
+                                                style={{
+                                                    borderColor: BORDER,
+                                                    color: FG_MUTED,
+                                                }}
+                                            >
+                                                {resetting === account.user_id
+                                                    ? "…"
+                                                    : "Reset day"}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -722,7 +808,11 @@ function AdminPageContent() {
                     )}
 
                     <p className="text-xs" style={{ color: FG_FAINT }}>
-                        Negative numbers subtract. A balance never goes below zero.
+                        Everyone gets a daily quota that resets at midnight. What
+                        you grant here is permanent — it sits on top of the daily
+                        quota and stays until it is used up. Negative numbers
+                        subtract; a grant never goes below zero. “Reset day” only
+                        gives back today’s quota and leaves granted credits alone.
                     </p>
                 </section>
                 )}

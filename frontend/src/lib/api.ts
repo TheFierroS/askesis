@@ -30,10 +30,31 @@ export interface CreditAccount {
     /** Clerk'ten geliyor; sunucuda anahtar tanımlı değilse boş. */
     name: string;
     email: string;
+    /** Bugün üretilebilecek toplam: günlük kota kalanı + kalıcı hak. */
     balance: number;
+    /** Admin'in verdiği kalıcı hak. Sıfırlanmıyor, bitene kadar duruyor. */
+    bonus: number;
+    daily_limit: number;
+    daily_used: number;
+    /** Bugüne kadar üretilen toplam soru. Admin düzeltmeleri dahil değil. */
     used_total: number;
     created_at: string;
     updated_at: string;
+}
+
+/**
+ * Hak durumu. Tek bir sayı yetmiyor: hakkı biten kullanıcıya "yarın
+ * yenilenecek" mi yoksa "verilen hakkın da bitti" mi diyeceğimizi ancak
+ * dökümü bilerek seçebiliyoruz.
+ */
+export interface CreditBalance {
+    /** Üst bardaki tek sayı: bugün üretilebilecek toplam. */
+    balance: number;
+    daily_limit: number;
+    daily_used: number;
+    daily_left: number;
+    /** Admin'in verdiği kalıcı hak. */
+    bonus: number;
 }
 
 export interface ExamResponse {
@@ -224,21 +245,32 @@ export function createApi(getToken: TokenGetter) {
             return URL.createObjectURL(await response.blob());
         },
 
-        credits: () =>
-            request<{ balance: number }>("/api/credits", { getToken }),
+        credits: () => request<CreditBalance>("/api/credits", { getToken }),
 
         adminCredits: () =>
             request<CreditAccount[]>("/api/admin/credits", { getToken }),
 
+        /** Kalıcı hak yükler. Negatif değer düşürür; sıfırın altına inmiyor. */
         adminGrantCredits: (params: {
             user_id: string;
             amount: number;
             reason?: string;
         }) =>
-            request<{ balance: number }>("/api/admin/credits", {
+            request<CreditBalance>("/api/admin/credits", {
                 getToken,
                 method: "POST",
                 body: params,
+            }),
+
+        /**
+         * Kullanıcının bugünkü kota kullanımını sıfırlar; kalıcı hakka
+         * dokunmaz. amount sunucuda kullanılmıyor ama şema grant ile ortak.
+         */
+        adminResetDaily: (userId: string) =>
+            request<CreditBalance>("/api/admin/credits/reset", {
+                getToken,
+                method: "POST",
+                body: { user_id: userId, amount: 0 },
             }),
 
         exams: () => request<ExamSummary[]>("/api/exams", { getToken }),

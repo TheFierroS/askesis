@@ -114,6 +114,12 @@ def health() -> dict:
         "latex": "hazır" if latex.latex_available() else "kurulu değil",
         "providers": provider_status(),
         "pools": pool.stats(),
+        # Günlük kota ve son bir haftanın üretimi. Sunucuya girmeden
+        # "site kullanılıyor mu" sorusunun cevabı burada.
+        "quota": {
+            "daily": credits.base_quota(),
+            "last_days": credits.daily_totals(7),
+        },
     }
 
 
@@ -183,11 +189,15 @@ def create_exam(
     # Hak kontrolü üretimden ÖNCE: hakkı olmayan biri için LLM çalıştırmanın
     # anlamı yok. Düşme işlemi ise sonda, gerçekten verilen soru sayısı
     # kadar — az soru gelirse az düşsün.
-    available = credits.balance(user_id)
+    allow = credits.allowance(user_id)
+    available = allow.total
     if available <= 0:
         raise HTTPException(
             status_code=402,
-            detail="Soru hakkın kalmadı.",
+            detail=(
+                f"Bugünkü {allow.daily_limit} soruluk hakkını kullandın. "
+                "Yeni hakkın gece yarısı geliyor."
+            ),
         )
 
     questions = pool.take_questions(
@@ -280,9 +290,11 @@ def create_exam(
 
     # Hak düşme: verilen soru kadar. Üretim başarısız olup az soru geldiyse
     # kullanıcı almadığı sorunun bedelini ödemiyor.
-    credits_left = credits.consume(
+    # consume artık dökümü döndürüyor; frontend'e giden tek sayı toplam.
+    left = credits.consume(
         user_id, len(questions), reason=f"{request.course} · {request.exam_type}"
     )
+    credits_left = left.total
 
     # Geçmişe kaydet: hesap açmanın karşılığı bu — kullanıcı ürettiği sınavlara
     # sonradan dönebiliyor.
@@ -326,15 +338,26 @@ def _to_summary(summary: pool.ExamSummary) -> ExamSummaryOut:
     )
 
 
+def _balance_out(allow: credits.Allowance) -> CreditBalanceOut:
+    """Allowance -> API gövdesi. Dört uçta aynı dönüşüm gerekiyor."""
+    return CreditBalanceOut(
+        balance=allow.total,
+        daily_limit=allow.daily_limit,
+        daily_used=allow.daily_used,
+        daily_left=allow.daily_left,
+        bonus=allow.bonus,
+    )
+
+
 @app.get("/api/credits", response_model=CreditBalanceOut)
 def my_credits(user_id: str = Depends(current_user)) -> CreditBalanceOut:
-    """Kullanıcının kalan soru hakkı."""
-    return CreditBalanceOut(balance=credits.balance(user_id))
+    """Kullanıcının bugün üretebileceği soru sayısı."""
+    return _balance_out(credits.allowance(user_id))
 
 
 @app.get("/api/admin/credits", response_model=list[CreditAccountOut])
 def admin_credits(_: str = Depends(require_admin)) -> list[CreditAccountOut]:
-    """Tüm hesaplar ve bakiyeleri."""
+    """Tüm kullanıcılar: bugünkü kota kalanı ve kalıcı hakları."""
     accounts = credits.list_accounts()
 
     # İsim ve e-posta Clerk'te duruyor, bizde değil. Tek toplu istekle
@@ -346,7 +369,10 @@ def admin_credits(_: str = Depends(require_admin)) -> list[CreditAccountOut]:
             user_id=account.user_id,
             name=people.get(account.user_id).name if account.user_id in people else "",
             email=people.get(account.user_id).email if account.user_id in people else "",
-            balance=account.balance,
+            balance=account.total,
+            bonus=account.bonus,
+            daily_limit=account.daily_limit,
+            daily_used=account.daily_used,
             used_total=account.used_total,
             created_at=account.created_at,
             updated_at=account.updated_at,
@@ -361,15 +387,35 @@ def admin_grant_credits(
     admin_id: str = Depends(require_admin),
 ) -> CreditBalanceOut:
     """
-    Kullanıcıya hak yükler. Negatif değer düzeltme için.
+    Kullanıcıya KALICI hak yükler. Negatif değer düzeltme için.
+
+    Bu hak günlük kotadan bağımsız: sıfırlanmıyor, kullanıcı bitirene kadar
+    duruyor ve günlük kota her gün onun üstüne biniyor.
 
     Her hareket credit_events tablosuna yazılıyor: kimin ne zaman ne kadar
-    yüklediği kayıt altında. Ödeme entegrasyonu geldiğinde bu iz zorunlu.
+    yüklediği kayıt altında.
     """
-    new_balance = credits.grant(
+    allow = credits.grant(
         request.user_id, request.amount, reason=f"{request.reason} ({admin_id})"
     )
-    return CreditBalanceOut(balance=new_balance)
+    return _balance_out(allow)
+
+
+@app.post("/api/admin/credits/reset", response_model=CreditBalanceOut)
+def admin_reset_daily(
+    request: GrantCreditsRequest,
+    admin_id: str = Depends(require_admin),
+) -> CreditBalanceOut:
+    """
+    Kullanıcının bugünkü kota kullanımını sıfırlar. Kalıcı hakka dokunmuyor.
+
+    Üretim yarıda patlayıp hak yandığında telafi etmenin yolu: kalıcı hak
+    vermek yerine o günün kotasını geri veriyoruz.
+
+    amount alanı kullanılmıyor; şema grant ile ortak.
+    """
+    allow = credits.reset_daily(request.user_id, reason=f"admin reset ({admin_id})")
+    return _balance_out(allow)
 
 
 @app.get("/api/exams", response_model=list[ExamSummaryOut])

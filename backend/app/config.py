@@ -135,10 +135,21 @@ class Settings(BaseSettings):
     uploads_path: str = "./data/uploads"
     sqlite_path: str = "./data/pool.db"
 
-    # --- Krediler ---
-    # Yeni kullanıcıya verilen ücretsiz soru hakkı. Denemeye yetecek kadar
-    # (dört-beş küçük sınav), bedavaya kullanılmayacak kadar.
-    free_credits: int = 20
+    # --- Soru hakkı ---
+    # Herkesin HER GÜN sıfırlanan kotası. Kullanılmayan kısım devretmiyor:
+    # 10 kullanıp 40 bırakan da ertesi gün 50 ile başlıyor.
+    #
+    # 0 yapmak kotayı kapatmıyor, sıfırlıyor — o durumda yalnızca admin'in
+    # verdiği kalıcı hak çalışır. Sınırsız istiyorsan büyük bir sayı ver.
+    daily_free_quota: int = 50
+
+    # Admin panelinden verilen hak bundan bağımsız: kalıcı, sıfırlanmıyor ve
+    # günlük kota her gün onun üstüne biniyor (credits tablosu).
+    #
+    # Aşağıdaki ayar artık kullanılmıyor. Yeni kullanıcı sıfır kalıcı hakla
+    # açılıyor, ücretsiz hak günlük kotadan geliyor. Alanı silmedim ki
+    # .env'de kalmış bir FREE_CREDITS satırı açılışta hata vermesin.
+    free_credits: int = 0
 
     # --- Havuz ---
     # Havuz hedefi: bir kombinasyonda bu sayıya ulaşılınca worker o dersi

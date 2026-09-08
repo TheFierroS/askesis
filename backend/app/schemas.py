@@ -224,7 +224,21 @@ class ExamDetailOut(BaseModel):
 
 
 class CreditBalanceOut(BaseModel):
+    """
+    Kullanıcının hak durumu.
+
+    balance tek başına yeterli görünüyor ama değil: hakkı biten kullanıcıya
+    "yarın yenilenecek" mi yoksa "sana hak verildi, o da bitti" mi diyeceğimizi
+    ancak dökümü bilerek seçebiliyoruz.
+    """
+
+    # Üst bardaki tek sayı: bugün üretilebilecek toplam (kota kalanı + kalıcı hak).
     balance: int
+    daily_limit: int = 0
+    daily_used: int = 0
+    daily_left: int = 0
+    # Admin'in verdiği kalıcı hak. Sıfırlanmıyor.
+    bonus: int = 0
 
 
 class CreditAccountOut(BaseModel):
@@ -234,7 +248,14 @@ class CreditAccountOut(BaseModel):
     # Clerk'ten geliyor; anahtar tanımlı değilse boş kalıyor.
     name: str = ""
     email: str = ""
+    # Kullanabileceği toplam: bugünkü kota kalanı + kalıcı hak.
     balance: int
+    # İkisini ayrı göstermek şart: "20 verdim ama hâlâ 0 gösteriyor" denildiğinde
+    # hangisinin bittiğini anlamanın tek yolu bu.
+    bonus: int = 0
+    daily_limit: int = 0
+    daily_used: int = 0
+    # Bugüne kadar üretilen toplam soru. Admin düzeltmeleri buna dahil değil.
     used_total: int
     created_at: str
     updated_at: str
@@ -243,6 +264,7 @@ class CreditAccountOut(BaseModel):
 class GrantCreditsRequest(BaseModel):
     user_id: str = Field(min_length=1)
     # Negatif değer düzeltme için; bakiye eksiye düşmüyor.
+    # Kota sıfırlama ucunda kullanılmıyor ama şema ortak, 0 geçilebiliyor.
     amount: int = Field(ge=-1000, le=10000)
     reason: str = Field(default="admin grant", max_length=200)
 
