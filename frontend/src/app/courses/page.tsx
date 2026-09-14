@@ -20,6 +20,17 @@ import { fetchPublicCourses, type PublicCourse } from "../../lib/publicApi";
  * ama liste yine sunucuda basılıyor.
  */
 
+/**
+ * Sayfanın yeniden üretilme sıklığı (saniye). AÇIKÇA yazılıyor.
+ *
+ * fetch içindeki `next: { revalidate }` tek başına yetmiyor: Next, bir sayfanın
+ * yenilenme süresini o render sırasında BAŞARILI olan fetch'lerden topluyor.
+ * fetchPublicCourses ağ hatasını yutup boş liste döndürdüğünde kaydedilmiş bir
+ * fetch kalmıyor ve sayfa `revalidate: false` ile, yani sonsuza kadar statik
+ * olarak pişiyor. Sitemap'te aynı önlem zaten alınmıştı, burada eksikti.
+ */
+export const revalidate = 600;
+
 const TITLE = "All courses";
 const DESCRIPTION =
     "Every course with practice questions ready, built from real past " +

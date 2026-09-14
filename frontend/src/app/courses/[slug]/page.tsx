@@ -28,6 +28,14 @@ import { fetchPublicCourse, fetchPublicCourses } from "../../../lib/publicApi";
  * bulunuyorlar; tek sayfada sekme yapsaydık ikisi tek adres olarak yarışırdı.
  */
 
+/**
+ * Süre burada da açıkça yazılıyor. Bu sayfa şu an şans eseri doğru çalışıyor:
+ * generateStaticParams derlemede boş döndüğü için hiçbir ders ön-üretilmedi ve
+ * hepsi ilk istekte canlı oluştu. Backend derleme sırasında ayakta olsaydı soru
+ * sayısı o anki değerde donardı.
+ */
+export const revalidate = 3600;
+
 export async function generateStaticParams() {
     const courses = await fetchPublicCourses();
     return courses.map((course) => ({ slug: course.slug }));
