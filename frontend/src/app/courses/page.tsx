@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import CourseSearch, { type CourseGroup } from "../../components/CourseSearch";
+import CourseSearch from "../../components/CourseSearch";
+import CoursesFallback from "../../components/CoursesFallback";
 import Logo from "../../components/Logo";
 import Reveal from "../../components/Reveal";
 import ThemeSwitch from "../../components/ThemeSwitch";
 import { BRAND } from "../../lib/brand";
-import { fetchPublicCourses, type PublicCourse } from "../../lib/publicApi";
+import { groupByCourse } from "../../lib/courseGroups";
+import { fetchPublicCoursesResult } from "../../lib/publicApi";
 
 /**
  * Herkese açık ders dizini.
@@ -51,34 +53,8 @@ export const metadata: Metadata = {
     },
 };
 
-/**
- * Aynı dersin sınav türlerini tek karta toplar.
- *
- * Backend ders+tür başına bir kayıt döndürüyor, çünkü havuzlar öyle tutuluyor
- * ve sayfalar da öyle ayrılıyor (vize ve final farklı konuları ölçüyor).
- * Ama listede ham haliyle göstermek ders adını her tür için tekrar ediyor;
- * yüz dersin üç sınav türü olduğunda liste okunmaz hale gelirdi.
- *
- * Dönen değer Map değil dizi: istemci bileşenine prop olarak geçiyor ve Map
- * sunucu-istemci sınırından geçemiyor.
- */
-function groupByCourse(courses: PublicCourse[]): CourseGroup[] {
-    const grouped = new Map<string, PublicCourse[]>();
-
-    for (const course of courses) {
-        const existing = grouped.get(course.course);
-        if (existing) {
-            existing.push(course);
-        } else {
-            grouped.set(course.course, [course]);
-        }
-    }
-
-    return [...grouped.entries()].map(([course, entries]) => ({ course, entries }));
-}
-
 export default async function CoursesPage() {
-    const courses = await fetchPublicCourses();
+    const { courses, upstreamFailed } = await fetchPublicCoursesResult();
     const groups = groupByCourse(courses);
 
     return (
@@ -142,10 +118,23 @@ export default async function CoursesPage() {
                     </Reveal>
                 </header>
 
-                {groups.length === 0 ? (
-                    /* Boş liste iki durumda görünüyor: hiçbir dersin havuzu henüz
-                       eşiği geçmemiş, ya da backend'e ulaşılamıyor. İkisini
-                       ziyaretçi açısından ayırmanın anlamı yok. */
+                {/* Üç durum var ve ikisi eskiden aynı kefedeydi:
+
+                    - Liste dolu                  → normal render.
+                    - Liste boş, fetch BAŞARILI   → gerçekten ders yok, mesaj.
+                    - Liste boş, fetch BAŞARISIZ  → sunucu API'ye ulaşamadı.
+
+                    Sonuncusunda mesaj göstermek yanlış: ders var, sadece bu
+                    render onu göremedi ve Next boş hali önbelleğe yazdı.
+                    Tarayıcıdan tekrar denemek o önbelleği ziyaretçi için
+                    etkisiz kılıyor. */}
+                {groups.length > 0 ? (
+                    <CourseSearch groups={groups} />
+                ) : upstreamFailed ? (
+                    <Reveal mode="mount" delay={0.28}>
+                        <CoursesFallback />
+                    </Reveal>
+                ) : (
                     <Reveal mode="mount" delay={0.28}>
                         <p
                             className="text-sm"
@@ -157,8 +146,6 @@ export default async function CoursesPage() {
                             No courses are ready just yet. Check back soon.
                         </p>
                     </Reveal>
-                ) : (
-                    <CourseSearch groups={groups} />
                 )}
 
                 <Reveal y={16}>
