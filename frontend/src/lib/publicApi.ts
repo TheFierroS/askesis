@@ -72,6 +72,25 @@ const REVALIDATE_SECONDS = 3600;
 const TIMEOUT_MS = 8000;
 
 /**
+ * Bir istek kaç kez denenir.
+ *
+ * Sunucuya giden yol aralıklı olarak kopuyor: aynı adres tarayıcıdan 0,13
+ * saniyede cevap verirken Vercel'in çağrısı bazen sekiz saniyede zaman
+ * aşımına düşüyor. Tek deneme, o anlık kopmayı kalıcı bir "ders yok"a
+ * çeviriyordu. Üç deneme, aradaki bekleme ile birlikte, bu tür kopmaların
+ * neredeyse tamamını kapatıyor ve toplam süreyi derlemeyi kilitleyecek kadar
+ * uzatmıyor.
+ */
+const ATTEMPTS = 3;
+
+/** Denemeler arası bekleme (ms). Her denemede katlanarak artıyor. */
+const RETRY_DELAY_MS = 800;
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
  * Backend'e ulaşılamadığında fırlatılıyor.
  *
  * "Sunucu 404 dedi" ile "sunucuya hiç ulaşamadım" ayrı şeyler ve bu ayrım
@@ -106,17 +125,36 @@ function describe(error: unknown): string {
  * Sonuncusunu çağıran taraf duruma göre ele alıyor: liste sayfası boş
  * listeyle devam edebilir, ders sayfası edemez.
  */
-async function getJson<T>(path: string, notFoundValue: T): Promise<T> {
-    let response: Response;
+async function fetchWithRetry(path: string): Promise<Response> {
+    let lastError: unknown = "denenmedi";
 
-    try {
-        response = await fetch(`${BASE_URL}${path}`, {
-            next: { revalidate: REVALIDATE_SECONDS },
-            signal: AbortSignal.timeout(TIMEOUT_MS),
-        });
-    } catch (error) {
-        throw new UpstreamUnavailable(path, error);
+    for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+        if (attempt > 0) await delay(RETRY_DELAY_MS * attempt);
+
+        try {
+            const response = await fetch(`${BASE_URL}${path}`, {
+                next: { revalidate: REVALIDATE_SECONDS },
+                signal: AbortSignal.timeout(TIMEOUT_MS),
+            });
+
+            // 5xx de yeniden denenir: sunucunun geçici derdi, kalıcı cevabı
+            // değil. 4xx denenmiyor, çünkü tekrar sormak aynı cevabı verir.
+            if (response.status >= 500) {
+                lastError = `HTTP ${response.status}`;
+                continue;
+            }
+
+            return response;
+        } catch (error) {
+            lastError = error;
+        }
     }
+
+    throw new UpstreamUnavailable(path, lastError);
+}
+
+async function getJson<T>(path: string, notFoundValue: T): Promise<T> {
+    const response = await fetchWithRetry(path);
 
     // Yalnızca 404 "yok" demek. 500 veya 502 sunucunun geçici derdi ve o anki
     // hâlini kalıcı bir 404 olarak dondurmamalıyız.
@@ -139,13 +177,33 @@ async function getJson<T>(path: string, notFoundValue: T): Promise<T> {
  * dizin sayfası, düşmüş bir dağıtımdan iyi. Bir saat sonra kendiliğinden
  * doluyor.
  */
-export async function fetchPublicCourses(): Promise<PublicCourse[]> {
+export interface PublicCoursesResult {
+    courses: PublicCourse[];
+    /**
+     * Liste gerçekten boş mu, yoksa sunucuya ulaşılamadı mı.
+     *
+     * İkisi ziyaretçi için aynı görünüyordu ama sayfanın davranışı farklı
+     * olmalı: gerçekten boşsa "henüz ders yok" doğru cevap, ulaşılamadıysa
+     * listeyi tarayıcıdan çekmeyi denemek gerekiyor. Bu ayrım olmadan boş
+     * liste sessizce önbelleğe yazılıyor ve on dakika boyunca yayında
+     * kalıyordu.
+     */
+    upstreamFailed: boolean;
+}
+
+export async function fetchPublicCoursesResult(): Promise<PublicCoursesResult> {
     try {
-        return await getJson<PublicCourse[]>("/public/courses", []);
+        const courses = await getJson<PublicCourse[]>("/public/courses", []);
+        return { courses, upstreamFailed: false };
     } catch (error) {
         console.warn(describe(error), "— boş listeyle devam ediliyor");
-        return [];
+        return { courses: [], upstreamFailed: true };
     }
+}
+
+export async function fetchPublicCourses(): Promise<PublicCourse[]> {
+    const { courses } = await fetchPublicCoursesResult();
+    return courses;
 }
 
 /**
